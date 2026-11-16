@@ -1,7 +1,7 @@
 # Recette : comparaison avec l'ancienne app (TPF Info 2.9.10) — 2026-11-16
 
 Méthode : AVD `mission_geo_phone` (1080×2400), position simulée 46.8032 / 7.1597, arrêt Tilleul-Cathédrale (ancienne app) / Tilleul/Cathédrale (FriBus Info).
-Ancienne app capturée avec l'horloge en juin 2021 (seule date acceptée par son horaire embarqué) ; FriBus Info v1.0.0 (APK de la release) capturée à la date réelle, réseau actif.
+Ancienne app capturée avec l'horloge en juin 2021 (seule date acceptée par son horaire embarqué) ; FriBus Info capturée à la date réelle, réseau actif ; les captures `*-fribus.png` viennent du build postérieur au commit 02292fb (rendu aligné sur l'ancienne app), pas de l'APK v1.0.0 d'origine.
 Les écarts sont étiquetés « voulu » avec la référence à la spec (`docs/superpowers/specs/2026-11-16-fribus-info-design.md`) ou à une décision du contrôleur ; sinon « non voulu ».
 
 ## 1. À proximité
@@ -17,7 +17,7 @@ Les écarts sont étiquetés « voulu » avec la référence à la spec (`docs/s
 | Distances, arrêts, lignes | 125 m, 150 m… ; lignes 7, 123, 124, 127, M17, N4… | 100 m, 125 m… ; lignes 1–6, 8, 9, 11, N1–N3… | voulu — spec §5, §8 |
 | Pastilles de lignes, forme | Carrés 46×47 px réels (17,5 dp), pas 48 px, interligne 52 px | Carrés 46×47 px, mêmes pas et interligne ; plus larges seulement pour « 542 », « FUN », « N1 » | corrigé (commit 02292fb) |
 | Pastilles de lignes, texte | Chiffres en graisse moyenne, hauteur 23 px | Graisse moyenne, 12 sp | corrigé (commit 02292fb) |
-| Pastilles de lignes, trop-plein | « … » après 2 rangées de 4 | Jusqu'à 8 pastilles sur 2 rangées, sans « … » | à vérifier (contrôleur) |
+| Pastilles de lignes, trop-plein | Jusqu'à 8 pastilles (2 rangées de 4) ; au-delà de 8 : 7 pastilles + « … » | Jusqu'à 8 pastilles (4 par rangée × 2) ; au-delà de 8 : 7 pastilles + « … » (`badgeSlots`) | voulu — décision du contrôleur : visuellement identique à l'ancienne app avec nos libellés étroits |
 | Icône menu | x≈60 | x≈61 (+4 dp de marge) | corrigé (commit 02292fb) |
 | Textes des lignes d'arrêt | Nom 306 px (« Eglise-St-Jean »), commune 131 px, distance 85 px | 305 / 136 / 87 px (17 / 13,5 / 12 sp), mêmes positions verticales à ±2 px | corrigé (commit 02292fb) |
 | Pictogramme repère et icônes de la barre (loupe, localisation) | Dessins propres à l'ancienne app (repère étroit, loupe plus grande) | Icônes Material de tailles ajustées (même emprise) ; dessin légèrement différent | voulu — icônes standard (pas d'actifs de l'ancienne app) |
@@ -104,15 +104,18 @@ Les écarts sont étiquetés « voulu » avec la référence à la spec (`docs/s
 | Marge haute de la liste | Première entrée collée à la barre | Collée à la barre | corrigé (commit 02292fb) |
 | Hauteur des entrées, surlignage actif | 122 px, gris clair | Identiques | identique |
 
+## Point ouvert
+
+L'ancienne app garde un départ tout juste passé avec un bouton plus clair ; FriBus Info le retire à sa minute (sauf retard connu) — à décider par Matthieu.
+
 ## Conclusion
 
 Tous les écarts « voulu » sont conformes à la spec ou aux décisions du contrôleur. Les écarts « non voulu » listés dans la première version (pastilles, textes, tiroir, menu ⋮, défilement initial, marges de barre, recherche) sont **corrigés** (commit 02292fb) et recapturés (`*-fribus.png`) ; mesures à ±2 px sur les captures 1080×2400.
 
 Ce qui reste, sans être corrigeable par réglage :
 
-1. Pastilles de trop-plein (« … » après 6 dans l'ancienne app, jusqu'à 8 sans « … » dans FriBus Info) : **à vérifier (contrôleur)**, non modifié (comportement défini par la spec).
-2. Dessin des icônes (repère de distance, loupe, localisation, icônes du tiroir et du menu ⋮) : icônes Material à la même emprise que les originales, pas leur dessin exact (actifs de l'ancienne app non repris).
-3. Hauteur de glyphes de la commune (13,5 sp) : l'ancienne police est un peu plus haute à largeur égale (≈ 3 px) ; invisible à l'usage.
-4. Barre du tiroir ouvert : le titre de l'écran remplace le logo « tpf » (voulu, spec §4).
+1. Dessin des icônes (repère de distance, loupe, localisation, icônes du tiroir et du menu ⋮) : icônes Material à la même emprise que les originales, pas leur dessin exact (actifs de l'ancienne app non repris).
+2. Hauteur de glyphes de la commune (13,5 sp) : l'ancienne police est un peu plus haute à largeur égale (≈ 3 px) ; invisible à l'usage.
+3. Barre du tiroir ouvert : le titre de l'écran remplace le logo « tpf » (voulu, spec §4).
 
-Aucun autre écart non souhaité constaté. Mesures prises sur les captures 1080×2400 (densité 2,625 px/dp).
+Mesures prises sur les captures 1080×2400 (densité 2,625 px/dp). Le point ouvert ci-dessus est une décision laissée à Matthieu, pas un écart non souhaité : aucun écart non souhaité.
