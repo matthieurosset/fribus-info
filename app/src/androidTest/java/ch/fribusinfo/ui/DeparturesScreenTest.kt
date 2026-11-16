@@ -7,6 +7,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -202,6 +204,31 @@ class DeparturesScreenTest {
             val rows = rule.onAllNodesWithTag("departure-row").fetchSemanticsNodes()
             rows.isNotEmpty() && rowText(0) != firstText
         }
+    }
+
+    @Test fun userScrollIsKeptAfterStateRestoration() {
+        val tester = androidx.compose.ui.test.junit4.StateRestorationTester(rule)
+        tester.setContent {
+            TestTheme {
+                val nav = rememberNavController()
+                NavHost(nav, "stop/{stopId}") {
+                    composable("stop/{stopId}") { DeparturesScreen(nav, repo, favorites, stopId, { noon }, null) }
+                    composable("search") { }
+                    composable("nearby") { }
+                }
+            }
+        }
+        waitRows()
+        val first = rowText(0)
+        rule.onNodeWithTag("departures-list").performTouchInput { swipeUp(durationMillis = 200) }
+        rule.waitForIdle()
+        val scrolled = rowText(0)
+        assertTrue("list should have scrolled", scrolled != first)
+        tester.emulateSavedInstanceStateRestore()
+        waitRows()
+        rule.waitForIdle()
+        // Without the saved « user scrolled » flag the auto-scroll would jump back to the top.
+        assertTrue("position must be kept", rowText(0) != first)
     }
 
     @Test fun emptyWindowShowsMessage() {

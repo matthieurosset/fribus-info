@@ -112,6 +112,7 @@ Trois entrées seulement : *À proximité*, *Rechercher*, *Favoris*. Favoris = l
 - Rapprochement d'un départ API avec un départ local : même numéro de ligne, même heure prévue,
   même destination. Si un retard est connu (signé, à la seconde, avance comprise), l'affichage
   suit l'ancienne app (§6.2) : minutes jaunes ou pastille bleue « +N' » ; plus d'étiquette jaune.
+  Fenêtre par ligne : un départ avec données temps réel reste listé jusqu'à une minute après son heure réelle (grisé), un départ sans données seulement jusqu'à la minute courante.
 - Réponse gardée ~30 s, rafraîchie tant que l'écran est ouvert et visible (jamais en
   arrière-plan). L'écran de trajet applique le retard connu de la course à ses arrêts suivants.
 - Pas de réseau ou API en erreur : horaire théorique, sans message d'erreur.

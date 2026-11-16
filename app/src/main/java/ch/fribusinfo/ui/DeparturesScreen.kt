@@ -27,7 +27,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -49,6 +50,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -193,7 +195,7 @@ private fun LargeBadge(dep: Departure) {
             fontSize = if (long) 16.sp else 22.sp,
             fontWeight = if (line.bordered) FontWeight.Normal else FontWeight.Bold,
             maxLines = 1, softWrap = false,
-            modifier = if (long) Modifier.graphicsLayer(scaleX = 0.7f) else Modifier,
+            style = if (long) TextStyle(textGeometricTransform = TextGeometricTransform(scaleX = 0.7f)) else TextStyle.Default,
         )
     }
 }
@@ -230,12 +232,12 @@ fun DeparturesScreen(
                 val t = now()
                 try {
                     departures = withContext(Dispatchers.IO) { repository.departures(stopId, t.minus(LOOK_BACK), RAW_LIMIT, Duration.ofMinutes(120).plus(LOOK_BACK)) }
-                    current = t
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     Log.w("DeparturesScreen", "departures refresh failed", e)
                 }
+                current = t
                 delay(tickMillis ?: millisUntilNextMinute(now()))
             }
         }
@@ -304,7 +306,7 @@ fun DeparturesScreen(
             departures?.let { visibleDepartures(it, delays, current) }
         }
         val listState = rememberLazyListState()
-        var userScrolled by remember { mutableStateOf(false) }
+        var userScrolled by rememberSaveable { mutableStateOf(false) }
         val scrollWatcher = remember {
             object : NestedScrollConnection {
                 override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
@@ -328,7 +330,7 @@ fun DeparturesScreen(
                     modifier = Modifier.padding(24.dp),
                 )
             }
-            else -> LazyColumn(Modifier.nestedScroll(scrollWatcher), state = listState) {
+            else -> LazyColumn(Modifier.testTag("departures-list").nestedScroll(scrollWatcher), state = listState) {
                 items(list, key = { "${it.tripId}/${serviceDateInt(it)}/${it.seq}" }) { d ->
                     val delay = delays[d.tripId]
                     DepartureRow(d, current, absolute, delay, onClick = {
