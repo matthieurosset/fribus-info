@@ -10,6 +10,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import kotlinx.coroutines.flow.filter
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -42,24 +50,39 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
+/** « Aucun arrêt trouvé » only once the current query has actually been resolved. */
+fun shouldShowNoMatch(query: String, resolvedQuery: String?, resultsEmpty: Boolean) =
+    query.isNotBlank() && resolvedQuery == query && resultsEmpty
+
 /** Search: the field lives in the bar; results update as you type (debounced, off the main thread). */
 @Composable
 fun SearchScreen(navController: NavController, repository: TimetableRepository?) {
     var query by rememberSaveable { mutableStateOf("") }
     var results by remember { mutableStateOf<List<StopWithLines>>(emptyList()) }
+    var resolvedQuery by remember { mutableStateOf<String?>(null) }
     val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    val listState = rememberLazyListState()
 
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    // Open the keyboard on entry only for a fresh search, not when returning to a saved query.
+    LaunchedEffect(Unit) { if (query.isEmpty()) runCatching { focus.requestFocus() } }
+    // Hide the keyboard as soon as the list is scrolled.
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }.filter { it }.collect { keyboard?.hide() }
+    }
 
     LaunchedEffect(repository, query) {
-        if (repository == null || query.isBlank()) { results = emptyList(); return@LaunchedEffect }
+        if (repository == null || query.isBlank()) { results = emptyList(); resolvedQuery = null; return@LaunchedEffect }
         delay(150)
-        results = try {
+        val found = try {
             withContext(Dispatchers.IO) { repository.search(query) }
         } catch (e: Exception) {
             Log.w("SearchScreen", "search failed", e)
             emptyList()
         }
+        results = found
+        resolvedQuery = query
     }
 
     AppScaffold(
@@ -78,6 +101,8 @@ fun SearchScreen(navController: NavController, repository: TimetableRepository?)
                         value = query,
                         onValueChange = { query = it },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
                         textStyle = TextStyle(color = Color.White, fontSize = 18.sp),
                         cursorBrush = SolidColor(Color(0xFF018BC1)),
                         modifier = Modifier.fillMaxWidth().focusRequester(focus).testTag("search-field"),
@@ -93,10 +118,15 @@ fun SearchScreen(navController: NavController, repository: TimetableRepository?)
     ) {
         when {
             query.isBlank() -> Unit
-            results.isEmpty() -> if (repository != null) NoMatch()
-            else -> LazyColumn(Modifier.fillMaxSize()) {
+            shouldShowNoMatch(query, resolvedQuery, results.isEmpty()) -> NoMatch()
+            results.isEmpty() -> Unit
+            else -> LazyColumn(Modifier.fillMaxSize(), state = listState) {
                 items(results, key = { it.stop.id }) { s ->
-                    StopRow(s) { navController.navigate(Routes.stop(s.stop.id)) }
+                    StopRow(s) {
+                        keyboard?.hide()
+                        focusManager.clearFocus()
+                        navController.navigate(Routes.stop(s.stop.id))
+                    }
                 }
             }
         }
