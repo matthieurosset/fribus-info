@@ -1,0 +1,61 @@
+name: Horaires
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [v1]
+    paths:
+      - "pipeline/**"
+      - ".github/workflows/timetable.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Télécharger les GTFS
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/gtfs"
+          year=$(date +%Y)
+          next=$((year + 1))
+          base=https://data.opentransportdata.swiss/de/dataset
+          curl -fsSL -o "$RUNNER_TEMP/gtfs/current.zip" "$base/timetable-$year-gtfs2020/permalink"
+          args="--gtfs $RUNNER_TEMP/gtfs/current.zip"
+          # Le jeu de l'année suivante n'existe pas toujours : son absence n'est pas une erreur.
+          if curl -fsSL -o "$RUNNER_TEMP/gtfs/next.zip" "$base/timetable-$next-gtfs2020/permalink"; then
+            args="$args --gtfs $RUNNER_TEMP/gtfs/next.zip"
+          else
+            echo "Pas de jeu GTFS $next, on continue avec $year seul."
+            rm -f "$RUNNER_TEMP/gtfs/next.zip"
+          fi
+          echo "GTFS_ARGS=$args" >> "$GITHUB_ENV"
+
+      - name: Tests
+        run: python -I -m unittest discover -s pipeline
+
+      - name: Construire la base
+        run: |
+          python -I pipeline/build_timetable.py $GTFS_ARGS \
+            --lines pipeline/lines.json --out timetable.db --version-out version.json
+          cat version.json
+          ls -l timetable.db
+
+      - name: Publier la release
+        run: |
+          gh release create timetable --title "Horaires" \
+            --notes "Base d'horaires reconstruite chaque semaine." || true
+          gh release upload timetable timetable.db version.json --clobber
