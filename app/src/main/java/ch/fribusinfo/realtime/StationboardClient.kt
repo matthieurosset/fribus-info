@@ -7,6 +7,7 @@ import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -17,6 +18,7 @@ import java.time.format.DateTimeFormatter
 data class RtDeparture(val line: String, val to: String, val scheduled: ZonedDateTime, val expected: ZonedDateTime?, val category: String = "")
 
 private val zurich = ZoneId.of("Europe/Zurich")
+private val fromFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 private val apiTime = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ")
 
 private fun JSONObject.optTime(name: String): ZonedDateTime? {
@@ -42,13 +44,23 @@ fun parseStationboard(json: String): List<RtDeparture> {
     return out
 }
 
-open class StationboardClient(private val baseUrl: String = "https://transport.opendata.ch/v1/") {
+open class StationboardClient(
+    private val baseUrl: String = "https://transport.opendata.ch/v1/",
+    private val clock: () -> ZonedDateTime = { ZonedDateTime.now(zurich) },
+) {
     /** HTTP 429: the caller must back off. */
     class TooManyRequests : IOException("HTTP 429")
 
-    open suspend fun fetch(stopId: Long, limit: Int = 60): Result<List<RtDeparture>> = withContext(Dispatchers.IO) {
+    /** Without `datetime` the API starts at the current time by SCHEDULED time and omits a late
+     *  bus whose scheduled time has passed; asking from 30 min back returns it with its prognosis. */
+    internal fun buildUrl(stopId: Long, limit: Int, now: ZonedDateTime): String {
+        val from = now.withZoneSameInstant(zurich).minusMinutes(30).format(fromFormat)
+        return "${baseUrl}stationboard?id=$stopId&limit=$limit&datetime=${URLEncoder.encode(from, "UTF-8")}"
+    }
+
+    open suspend fun fetch(stopId: Long, limit: Int = 100): Result<List<RtDeparture>> = withContext(Dispatchers.IO) {
         try {
-            val conn = URL("${baseUrl}stationboard?id=$stopId&limit=$limit").openConnection() as HttpURLConnection
+            val conn = URL(buildUrl(stopId, limit, clock())).openConnection() as HttpURLConnection
             try {
                 conn.connectTimeout = 8_000
                 conn.readTimeout = 8_000
