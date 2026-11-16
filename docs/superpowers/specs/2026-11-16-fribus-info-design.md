@@ -63,31 +63,56 @@ Barre du haut bordeaux comme l'ancienne app, nom « FriBus Info » à la place d
 Langue de l'interface : français.
 
 **6.1 Arrêts à proximité** (écran d'accueil, capture `1-arrets-proches.png`)
-Liste triée par distance : icône de repère + distance (« 350 m ») à gauche, nom de l'arrêt en
-gras, commune en dessous, badges colorés des lignes à droite (deux rangées max, puis « … »).
-Bouton loupe (recherche) et bouton de relocalisation dans la barre.
-Noms GTFS du type `Fribourg, Tilleul/Cathédrale` : partie après la virgule = nom, avant = commune.
-*Choix de Claude* : sans position (permission refusée, GPS coupé) ou sans arrêt dans le rayon
-(hors agglo), l'écran affiche un court texte centré, comme l'ancienne app (« Position
-indisponible » / « Aucun arrêt à proximité »). La loupe et le menu restent utilisables.
+Arrêts situés dans un carré de ±500 m autour de la position (comme l'ancienne app : coins à
+≈ 707 m, pas de filtre circulaire, pas de limite de nombre, pas de recherche élargie), triés par
+distance. Les distances se rafraîchissent après un déplacement de 100 m, ou tout de suite sur le bouton de
+relocalisation. Icône de repère + distance à gauche, toujours arrondie au multiple de 25 m
+supérieur (`(d / 25 + 1) * 25` : 0-24 m → « 25 m », 25 m → « 50 m »), nom de l'arrêt en gras,
+commune en dessous (#888888), badges colorés des lignes à droite (deux rangées de 4 max, puis
+« … »). Séparateur de liste : 1 px #AAAAAA. Bouton loupe (recherche) et bouton de relocalisation
+dans la barre. Noms GTFS du type `Fribourg, Tilleul/Cathédrale` : partie après la virgule = nom,
+avant = commune.
+Textes (repris de l'ancienne app) : liste vide « Aucun résultat » (18 sp gras #8F8F8F, centré).
+*Choix de Claude* : sans position (permission refusée, GPS coupé) l'écran affiche « Position
+indisponible » (l'ancien texte citait « Wemlin »). La loupe et le menu restent utilisables.
 
 **6.2 Départs d'un arrêt** (`2-departs-arret.png`, `3-menu-arret.png`)
-Une ligne par départ : badge de ligne coloré, destination en gras, commune de destination en
-dessous, temps restant en minutes (« 7' ») dans le bouton bleu à droite. Menu ⋮ : *Ajouter aux
-favoris* / *Retirer des favoris*, *Afficher l'heure* / *Afficher les minutes*.
+Une ligne par départ : badge de ligne 35 × 35 dp (libellé de 3 caractères ou plus : 16 sp, comprimé à
+70 %), destination en gras, commune en dessous, bouton bleu (dégradé #0085B9 → #008DC5, 50 dp) à
+droite. Minutes = différence de minutes d'horloge entre maintenant et l'heure réelle (10:04:30 →
+10:05 = « 1' »), « 1h05' » dès 60 min, jamais d'heure absolue automatique. Retard (temps réel,
+§7) : en mode minutes, minutes en jaune #FFFF00 si le retard arrondi vers zéro est non nul ; en
+mode heure, le bouton montre l'heure prévue (jaune si retard) et une pastille bleue à gauche
+affiche « +N' » (jaune), « +0' » (blanc) ou « -N' » (jaune, bus en avance). « 0' » : le fond du
+bouton clignote (alpha 1 ↔ 0,5, 1 s). Départ passé (temps réel seulement, une minute de grâce) :
+bouton gris #D4D4D4 → #DDDDDD, destination #8F8F8F ; la liste défile pour mettre le premier
+départ non passé en haut, sauf si l'utilisateur a fait défiler. Ordre : heure réelle (secondes)
+puis destination ; 30 départs max après tri, fenêtre de 120 min. Rafraîchi à chaque minute
+pile. Liste vide : « Pas de départ ces 2 prochaines heures » (gras, #8F8F8F). Menu ⋮ : *Ajouter
+aux favoris* / *Supprimer des favoris*, *Heure de départ absolue* / *Heure de départ en minutes*.
 Pas de bandeau rouge « données hors ligne », pas de bouton billets.
 
 **6.3 Trajet d'une course** (`4-trajet-course.png`)
 Titre = badge + destination. Liste verticale des arrêts reliés par une ligne (« chaîne de
-perles »), minutes depuis l'arrêt de départ à gauche, badges des lignes retenues à chaque arrêt,
-arrêt de départ surligné, terminus marqué. Les arrêts précédant l'arrêt choisi sont au-dessus,
-la liste s'ouvre centrée sur l'arrêt choisi.
+perles »), badges des lignes retenues à chaque arrêt, arrêt de départ surligné, terminus marqué.
+Minutes de chaque arrêt = minutes depuis maintenant (arrêts suivants décalés du retard du
+départ, arrêts précédents non décalés). Avant l'arrêt choisi : trait #DDDDDD, anneau #AAAAAA,
+texte #8F8F8F ; après : trait #999696, anneau #666666 ; anneau de l'arrêt choisi #891313 ; pas de
+trait au-dessus du premier arrêt ni sous le terminus ; terminus : anneau #423E3E et point #891313.
+Tant que le terminus n'est pas visible, une copie est épinglée en bas de l'écran. La liste
+s'ouvre sur l'arrêt choisi, le précédent dépassant en haut.
 
 **6.4 Recherche** (`5-recherche.png`)
-Champ dans la barre, résultats au fur et à mesure, même présentation que 6.1 sans distance.
+Champ dans la barre (indice « Rechercher station »), résultats au fur et à mesure (anti-rebond
+300 ms), même présentation que 6.1 sans distance. La requête est découpée en mots (virgules =
+espaces) ; chaque mot doit figurer, sans tenir compte des accents ni de la casse, dans
+« commune nom ». Résultats triés par nom (puis commune), sans limite ni priorité de préfixe ;
+champ vide = aucun résultat affiché. Aucun résultat : « Aucun résultat ».
 
 **6.5 Menu latéral** (`6-menu-lateral.png`, simplifié)
-Trois entrées seulement : *À proximité*, *Rechercher*, *Favoris*. Favoris = liste comme 6.1.
+Trois entrées seulement : *À proximité*, *Rechercher*, *Favoris*. Texte #666666, entrée courante
+sur fond #E6E6E6. Favoris = liste comme 6.1 sans distance, le dernier favori ajouté en tête ;
+liste vide : « La liste des favoris est vide. Définissez un ou plusieurs favori(s). ».
 
 ## 7. Temps réel
 
@@ -96,9 +121,9 @@ Trois entrées seulement : *À proximité*, *Rechercher*, *Favoris*. Favoris = l
   affiché uniquement** (gratuit, sans clé). Identifiant : le numéro d'arrêt suisse (DIDOK/UIC, ex.
   `8587255` pour Tilleul/Cathédrale), disponible dans les `stops.txt` du GTFS.
 - Rapprochement d'un départ API avec un départ local : même numéro de ligne, même heure prévue,
-  même destination. Si un retard est connu, le bouton affiche les minutes réelles et un
-  indicateur de retard dans le style de l'ancienne app (elle avait un libellé jaune pour le temps
-  réel ; à rendre au plus proche).
+  même destination. Si un retard est connu (signé, à la seconde, avance comprise), l'affichage
+  suit l'ancienne app (§6.2) : minutes jaunes ou pastille bleue « +N' » ; plus d'étiquette jaune.
+  Fenêtre par ligne : un départ avec données temps réel reste listé jusqu'à une minute après son heure réelle (grisé), un départ sans données seulement jusqu'à la minute courante.
 - Réponse gardée ~30 s, rafraîchie tant que l'écran est ouvert et visible (jamais en
   arrière-plan). L'écran de trajet applique le retard connu de la course à ses arrêts suivants.
 - Pas de réseau ou API en erreur : horaire théorique, sans message d'erreur.

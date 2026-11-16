@@ -1,0 +1,12 @@
+*.db
+*.zip
+keystore.properties
+*.keystore
+build/
+.gradle/
+local.properties
+app/src/main/assets/timetable.db
+__pycache__/
+*.apk
+.idea/
+!app/src/androidTest/assets/test.db
