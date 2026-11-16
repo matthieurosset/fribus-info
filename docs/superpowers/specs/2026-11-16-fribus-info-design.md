@@ -160,7 +160,16 @@ Structure du code, schéma SQLite exact, bibliothèques, rayon et nombre d'arrê
 (l'ancienne app montrait ~11 arrêts jusqu'à ~450 m), fenêtre de départs affichée, regroupement des
 quais d'un même arrêt (afficher un seul arrêt par nom, comme l'ancienne app), tests.
 
-## 11. À vérifier pendant la construction
+## 11. Recette finale (demandée par Matthieu)
+
+Dernière étape avant de rendre le travail : faire tourner **l'ancienne APK** (émulateur, horloge
+reculée à juin 2021 pour qu'elle accepte son horaire embarqué) et **FriBus Info** côte à côte,
+écran par écran (§6.1 à §6.5) et au même endroit (ex. position Neuveville-Motta, arrêt
+Tilleul-Cathédrale). Capturer chaque paire et lister chaque différence. Chaque écart doit être
+soit voulu par ce document (§3, §4, §6), soit corrigé. Rendre le tableau des paires et la
+conclusion « aucun écart non souhaité ».
+
+## 12. À vérifier pendant la construction
 
 - Limites d'usage de transport.opendata.ch (nombre de requêtes) et comportement si dépassé.
 - Qualité du rapprochement temps réel ↔ horaire local sur quelques arrêts réels.
