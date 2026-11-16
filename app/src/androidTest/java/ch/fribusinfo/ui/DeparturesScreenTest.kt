@@ -22,7 +22,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -32,7 +31,8 @@ class DeparturesScreenTest {
     private lateinit var repo: TimetableRepository
     private lateinit var favorites: Favorites
     private val zone = ZoneId.of("Europe/Zurich")
-    private val noon = ZonedDateTime.of(2026, 11, 17, 12, 0, 0, 0, zone)
+    // Today at noon: the bundled DB is rebuilt weekly and drops past trips, so no fixed date.
+    private val noon = ZonedDateTime.now(zone).withHour(12).withMinute(0).withSecond(0).withNano(0)
     private val stopId = 8587255L
 
     @Before fun setUp() {
@@ -43,7 +43,7 @@ class DeparturesScreenTest {
 
     private fun dep(minutes: Long, seconds: Long = 0) = Departure(
         1, Line(1, "2", 0xFF2440, 0xFFFFFF, false), "Schönberg Dunant", "Fribourg",
-        LocalDate.of(2026, 11, 17), 3, noon.plusMinutes(minutes).plusSeconds(seconds),
+        noon.toLocalDate(), 3, noon.plusMinutes(minutes).plusSeconds(seconds),
     )
 
     @Test fun rowShowsBadgeHeadsignCommuneAndMinutes() {

@@ -45,4 +45,4 @@ jobs:
         run: |
           cp app/build/outputs/apk/release/app-release.apk "FriBusInfo-${GITHUB_REF_NAME}.apk"
           gh release create "$GITHUB_REF_NAME" "FriBusInfo-${GITHUB_REF_NAME}.apk" \
-            --title "$GITHUB_REF_NAME" --notes "FriBus Info $GITHUB_REF_NAME"
+            --title "$GITHUB_REF_NAME" --notes "FriBus Info $GITHUB_REF_NAME. Données : opentransportdata.swiss (horaires), transport.opendata.ch (temps réel)."

@@ -2,6 +2,8 @@ package ch.fribusinfo.ui
 
 import android.Manifest
 import android.location.Location
+import android.util.Log
+import kotlinx.coroutines.CancellationException
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -107,8 +109,17 @@ fun NearbyScreen(
     val lon = location?.longitude
     var stops by remember { mutableStateOf<List<StopWithLines>?>(null) }
     LaunchedEffect(repository, lat, lon) {
-        stops = if (repository == null || lat == null || lon == null) null
-        else withContext(Dispatchers.IO) { repository.nearby(lat, lon) }
+        if (repository == null || lat == null || lon == null) {
+            stops = null
+            return@LaunchedEffect
+        }
+        try {
+            stops = withContext(Dispatchers.IO) { repository.nearby(lat, lon) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w("NearbyScreen", "nearby failed", e)  // keep the last list
+        }
     }
 
     val listState = rememberLazyListState()

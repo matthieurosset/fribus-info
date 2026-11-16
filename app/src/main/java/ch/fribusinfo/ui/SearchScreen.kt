@@ -1,6 +1,7 @@
 package ch.fribusinfo.ui
 
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -78,6 +79,8 @@ fun SearchScreen(navController: NavController, repository: TimetableRepository?)
         delay(150)
         val found = try {
             withContext(Dispatchers.IO) { repository.search(query) }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w("SearchScreen", "search failed", e)
             emptyList()

@@ -74,6 +74,7 @@ private fun App() {
                 navArgument("serviceDate") { type = NavType.IntType },
                 navArgument("fromSeq") { type = NavType.IntType },
                 navArgument("delay") { type = NavType.IntType; defaultValue = 0 },
+                navArgument("version") { type = NavType.StringType; defaultValue = "" },
             ),
         ) { entry ->
             val app = LocalContext.current.applicationContext as FriBusApp
@@ -86,6 +87,7 @@ private fun App() {
                 entry.arguments!!.getInt("delay").takeIf { it > 0 }?.let { java.time.Duration.ofSeconds(it.toLong()) },
                 nav,
                 repo,
+                entry.arguments!!.getString("version").orEmpty(),
             )
         }
     }

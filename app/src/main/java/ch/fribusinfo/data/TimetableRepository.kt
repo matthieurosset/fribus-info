@@ -20,10 +20,19 @@ class TimetableRepository(
 ) {
     /** Loads the lazy tables now; call on IO right after opening. */
     fun warmUp() {
+        version
         calendar
         lines
         lineOrder
         stopLines
+    }
+
+    /** `meta.version` of the database this repository reads (empty if absent). Routes carry it so a
+     *  screen opened on an older database does not reuse its ids on a newer one. */
+    val version: String by lazy {
+        db.rawQuery("SELECT value FROM meta WHERE key = 'version'", null).use { c ->
+            if (c.moveToFirst()) c.getString(0) else ""
+        }
     }
 
     private val calendar by lazy { ServiceCalendar.load(db) }

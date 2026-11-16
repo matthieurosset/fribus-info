@@ -62,7 +62,7 @@ class TripScreenTest {
             val nav = rememberNavController()
             NavHost(nav, "trip/{tripId}/{serviceDate}/{fromSeq}") {
                 composable("trip/{tripId}/{serviceDate}/{fromSeq}") {
-                    TripScreen(dep.tripId, dep.serviceDate, dep.seq, null, nav, repo)
+                    TripScreen(dep.tripId, dep.serviceDate, dep.seq, null, nav, repo, repo.version)
                 }
                 composable("stop/{stopId}") { e -> openedStop = e.arguments?.getString("stopId") }
                 composable("search") { }
@@ -133,5 +133,25 @@ class TripScreenTest {
         rule.onNodeWithTag(chosenTag).performClick()
         rule.waitForIdle()
         assertEquals(TEST_STOP.toString(), openedStop)
+    }
+
+    @Test fun routeFromAnotherDatabaseVersionPopsBackToDepartures() {
+        lateinit var nav: androidx.navigation.NavHostController
+        rule.setContent {
+            FriBusTheme {
+                nav = rememberNavController()
+                NavHost(nav, "stop/{stopId}") {
+                    composable("stop/{stopId}") { }
+                    composable("trip/{tripId}") {
+                        TripScreen(dep.tripId, dep.serviceDate, dep.seq, null, nav, repo, repo.version + "-old")
+                    }
+                    composable("search") { }
+                    composable("nearby") { }
+                }
+            }
+        }
+        rule.runOnUiThread { nav.navigate("trip/${dep.tripId}") }
+        rule.waitUntil(5000) { nav.currentDestination?.route == "stop/{stopId}" }
+        assertEquals("stop/{stopId}", nav.currentDestination?.route)
     }
 }

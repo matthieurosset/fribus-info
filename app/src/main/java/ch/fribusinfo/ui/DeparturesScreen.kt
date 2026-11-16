@@ -312,7 +312,7 @@ fun DeparturesScreen(
                     val delay = delays[d.tripId]
                     DepartureRow(d, current, absolute, delay) {
                         val secs = effectiveDelay(delay).seconds.toInt()
-                        navController.navigate(Routes.trip(d.tripId, serviceDateInt(d), d.seq, secs))
+                        navController.navigate(Routes.trip(d.tripId, serviceDateInt(d), d.seq, secs, repository?.version.orEmpty()))
                     }
                 }
             }

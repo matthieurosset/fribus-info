@@ -80,6 +80,10 @@ fun tripMinutes(stops: List<TripStop>, fromSeq: Int, delay: Duration? = null): L
     }
 }
 
+/** True when the trip ids of a route were issued by another database than [repoVersion]: trip ids
+ *  are only meaningful inside one database, so the screen must not reload them. */
+fun tripRouteIsStale(routeVersion: String, repoVersion: String): Boolean = routeVersion != repoVersion
+
 private class TripData(val header: TripHeader?, val stops: List<TripStop>)
 
 /** All stops of one trip. [delay] (realtime offset of the chosen departure) shifts the stops
@@ -92,12 +96,22 @@ fun TripScreen(
     delay: Duration?,
     navController: NavController,
     repository: TimetableRepository?,
+    version: String,
 ) {
     var data by remember { mutableStateOf<TripData?>(null) }
     LaunchedEffect(repository, tripId, serviceDate) {
         if (repository == null) return@LaunchedEffect
         try {
-            data = withContext(Dispatchers.IO) { TripData(repository.tripHeader(tripId), repository.trip(tripId, serviceDate)) }
+            val loaded = withContext(Dispatchers.IO) {
+                if (tripRouteIsStale(version, repository.version)) null
+                else TripData(repository.tripHeader(tripId), repository.trip(tripId, serviceDate))
+            }
+            if (loaded == null) {
+                // The timetable was swapped under this screen: back to the departures.
+                navController.popBackStack()
+                return@LaunchedEffect
+            }
+            data = loaded
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

@@ -52,13 +52,14 @@ open class StationboardClient(
     class TooManyRequests : IOException("HTTP 429")
 
     /** Without `datetime` the API starts at the current time by SCHEDULED time and omits a late
-     *  bus whose scheduled time has passed; asking from 30 min back returns it with its prognosis. */
+     *  bus whose scheduled time has passed; asking from 60 min back (the local look-back of the departures screen) returns it with its
+     *  prognosis. */
     internal fun buildUrl(stopId: Long, limit: Int, now: ZonedDateTime): String {
-        val from = now.withZoneSameInstant(zurich).minusMinutes(30).format(fromFormat)
+        val from = now.withZoneSameInstant(zurich).minusMinutes(60).format(fromFormat)
         return "${baseUrl}stationboard?id=$stopId&limit=$limit&datetime=${URLEncoder.encode(from, "UTF-8")}"
     }
 
-    open suspend fun fetch(stopId: Long, limit: Int = 100): Result<List<RtDeparture>> = withContext(Dispatchers.IO) {
+    open suspend fun fetch(stopId: Long, limit: Int = 150): Result<List<RtDeparture>> = withContext(Dispatchers.IO) {
         try {
             val conn = URL(buildUrl(stopId, limit, clock())).openConnection() as HttpURLConnection
             try {

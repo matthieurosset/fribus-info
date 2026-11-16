@@ -56,12 +56,13 @@ object Routes {
     const val SEARCH = "search"
     const val FAVORITES = "favorites"
     const val STOP = "stop/{stopId}"
-    const val TRIP = "trip/{tripId}/{serviceDate}/{fromSeq}?delay={delay}"
+    const val TRIP = "trip/{tripId}/{serviceDate}/{fromSeq}?delay={delay}&version={version}"
 
     fun stop(stopId: Long) = "stop/$stopId"
-    /** [delaySeconds]: realtime delay of the chosen departure (0 = none). */
-    fun trip(tripId: Long, serviceDate: Int, fromSeq: Int, delaySeconds: Int = 0) =
-        "trip/$tripId/$serviceDate/$fromSeq?delay=$delaySeconds"
+    /** [delaySeconds]: realtime delay of the chosen departure (0 = none). [version]: `meta.version`
+     *  of the database the ids come from. */
+    fun trip(tripId: Long, serviceDate: Int, fromSeq: Int, delaySeconds: Int = 0, version: String = "") =
+        "trip/$tripId/$serviceDate/$fromSeq?delay=$delaySeconds&version=$version"
 }
 
 private class DrawerEntry(val route: String, val label: String, val icon: ImageVector)
