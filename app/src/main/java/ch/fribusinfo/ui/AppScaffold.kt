@@ -3,7 +3,10 @@ package ch.fribusinfo.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -73,6 +76,8 @@ fun AppScaffold(
     val scope = rememberCoroutineScope()
     val currentRoute by navController.currentBackStackEntryAsState()
 
+    // Black system bars like the reference: the app draws inside the insets over a black base.
+    Box(Modifier.fillMaxSize().background(Color.Black).statusBarsPadding().navigationBarsPadding()) {
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -85,8 +90,7 @@ fun AppScaffold(
                     Modifier
                         .fillMaxWidth()
                         .background(Colors.Bar)
-                        .statusBarsPadding()
-                        .height(64.dp)
+                        .height(56.dp)
                         .padding(horizontal = 24.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
@@ -123,32 +127,30 @@ fun AppScaffold(
                     "Données : opentransportdata.swiss · transport.opendata.ch",
                     color = Colors.Secondary,
                     fontSize = 11.sp,
-                    modifier = Modifier.navigationBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp),
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
                 )
             }
         },
     ) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text(title) },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Filled.Menu, contentDescription = "Menu")
-                        }
-                    },
-                    actions = actions,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Colors.Bar,
-                        titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White,
-                        actionIconContentColor = Color.White,
-                    ),
-                )
+                // Custom 56 dp bar (M3 TopAppBar is fixed at 64 dp; the reference is 56).
+                Row(
+                    Modifier.fillMaxWidth().height(56.dp).background(Colors.Bar),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                        Icon(Icons.Filled.Menu, contentDescription = "Menu", tint = Color.White)
+                    }
+                    Text(title, color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                    CompositionLocalProvider(LocalContentColor provides Color.White) { actions() }
+                }
             },
             containerColor = Color.White,
+            contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         ) { padding ->
             Box(Modifier.fillMaxSize().padding(padding)) { content() }
         }
+    }
     }
 }

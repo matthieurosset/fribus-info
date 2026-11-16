@@ -72,6 +72,7 @@ dependencies {
     implementation(libs.navigation.compose)
     implementation(libs.activity.compose)
     implementation(libs.coroutines.android)
+    implementation(libs.lifecycle.runtime.compose)
     testImplementation(libs.junit)
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.runner)

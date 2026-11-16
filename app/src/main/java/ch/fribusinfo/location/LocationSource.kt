@@ -44,7 +44,14 @@ class AndroidLocationSource(private val context: Context) : LocationSource {
             try { lm.getLastKnownLocation(it) } catch (e: Exception) { null }
         }.maxByOrNull { it.time }
         if (last != null) { haveFix = true; trySend(last) }
-        val listener = LocationListener { loc -> haveFix = true; trySend(loc) }
+        // Explicit object: the SAM lambda leaves the provider callbacks abstract on API < 30.
+        val listener = object : LocationListener {
+            override fun onLocationChanged(loc: Location) { haveFix = true; trySend(loc) }
+            override fun onProviderEnabled(provider: String) {}
+            override fun onProviderDisabled(provider: String) {}
+            @Deprecated("Deprecated in Java")
+            override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
+        }
         providers.forEach {
             try { lm.requestLocationUpdates(it, 5_000L, 10f, listener, Looper.getMainLooper()) } catch (e: Exception) { }
         }
