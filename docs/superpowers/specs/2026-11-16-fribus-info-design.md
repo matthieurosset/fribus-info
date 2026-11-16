@@ -66,7 +66,7 @@ Langue de l'interface : français.
 Arrêts situés dans un carré de ±500 m autour de la position (comme l'ancienne app : coins à
 ≈ 707 m, pas de filtre circulaire, pas de limite de nombre, pas de recherche élargie), triés par
 distance. Liste recalculée seulement si la position a bougé d'au moins 100 m, ou sur le bouton de
-relocalisation. Icône de repère + distance à gauche, toujours arrondie au multiple de 25 m
+relocalisation (qui force le rechargement). Les distances ne se rafraîchissent qu'après un déplacement de 100 m (comme l'ancienne app). Icône de repère + distance à gauche, toujours arrondie au multiple de 25 m
 supérieur (`(d / 25 + 1) * 25` : 0-24 m → « 25 m », 25 m → « 50 m »), nom de l'arrêt en gras,
 commune en dessous (#888888), badges colorés des lignes à droite (deux rangées de 4 max, puis
 « … »). Séparateur de liste : 1 px #AAAAAA. Bouton loupe (recherche) et bouton de relocalisation

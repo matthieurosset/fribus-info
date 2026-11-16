@@ -113,16 +113,22 @@ fun NearbyScreen(
     // Position the shown list was computed for: the list is only recomputed after a move of 100 m
     // or more (like the old app), or on the target button / a new database.
     var anchor by remember(repository) { mutableStateOf<Pair<Double, Double>?>(null) }
-    LaunchedEffect(repository, lat, lon) {
-        if (repository == null || lat == null || lon == null) {
+    // Last `attempt` (target button) already honoured: a new one bypasses the 100 m rule.
+    var handledAttempt by remember(repository) { mutableIntStateOf(0) }
+    LaunchedEffect(repository, lat, lon, attempt) {
+        if (repository == null) {
             stops = null
             anchor = null
             return@LaunchedEffect
         }
-        if (!shouldReloadNearby(anchor?.first, anchor?.second, lat, lon)) return@LaunchedEffect
+        // No fix (yet): keep the previous list instead of blanking it while waiting.
+        if (lat == null || lon == null) return@LaunchedEffect
+        val forced = handledAttempt != attempt
+        if (!forced && !shouldReloadNearby(anchor?.first, anchor?.second, lat, lon)) return@LaunchedEffect
         try {
             stops = withContext(Dispatchers.IO) { repository.nearby(lat, lon) }
             anchor = lat to lon
+            handledAttempt = attempt
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
