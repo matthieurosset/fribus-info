@@ -7,3 +7,5 @@ build/
 local.properties
 app/src/main/assets/timetable.db
 __pycache__/
+*.apk
+.idea/

@@ -1,0 +1,154 @@
+package ch.fribusinfo.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import androidx.navigation.compose.currentBackStackEntryAsState
+import kotlinx.coroutines.launch
+
+object Routes {
+    const val NEARBY = "nearby"
+    const val SEARCH = "search"
+    const val FAVORITES = "favorites"
+    const val STOP = "stop/{stopId}"
+    const val TRIP = "trip/{tripId}/{serviceDate}/{fromSeq}"
+
+    fun stop(stopId: Long) = "stop/$stopId"
+    fun trip(tripId: Long, serviceDate: Int, fromSeq: Int) = "trip/$tripId/$serviceDate/$fromSeq"
+}
+
+private class DrawerEntry(val route: String, val label: String, val icon: ImageVector)
+
+private val entries = listOf(
+    DrawerEntry(Routes.NEARBY, "À proximité", Icons.Filled.MyLocation),
+    DrawerEntry(Routes.SEARCH, "Rechercher", Icons.Filled.Search),
+    DrawerEntry(Routes.FAVORITES, "Favoris", Icons.Filled.Star),
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppScaffold(
+    title: String,
+    navController: NavController,
+    actions: @Composable RowScope.() -> Unit = {},
+    content: @Composable () -> Unit,
+) {
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    val currentRoute by navController.currentBackStackEntryAsState()
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(
+                windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+                drawerContainerColor = Color.White,
+                drawerShape = androidx.compose.ui.graphics.RectangleShape,
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Colors.Bar)
+                        .statusBarsPadding()
+                        .height(64.dp)
+                        .padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Text("FriBus Info", color = Color.White, fontSize = 22.sp)
+                }
+                Spacer(Modifier.height(8.dp))
+                entries.forEach { e ->
+                    NavigationDrawerItem(
+                        label = { Text(e.label, fontSize = 17.sp) },
+                        icon = { Icon(e.icon, contentDescription = null) },
+                        selected = currentRoute?.destination?.route == e.route,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            if (currentRoute?.destination?.route != e.route) {
+                                navController.navigate(e.route) {
+                                    popUpTo(Routes.NEARBY)
+                                    launchSingleTop = true
+                                }
+                            }
+                        },
+                        shape = androidx.compose.ui.graphics.RectangleShape,
+                        colors = NavigationDrawerItemDefaults.colors(
+                            selectedContainerColor = Color(0xFFE5E5E5),
+                            unselectedContainerColor = Color.White,
+                            selectedIconColor = Colors.Secondary,
+                            unselectedIconColor = Colors.Secondary,
+                            selectedTextColor = Color(0xFF424242),
+                            unselectedTextColor = Color(0xFF424242),
+                        ),
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                Text(
+                    "Données : opentransportdata.swiss · transport.opendata.ch",
+                    color = Colors.Secondary,
+                    fontSize = 11.sp,
+                    modifier = Modifier.navigationBarsPadding().padding(horizontal = 24.dp, vertical = 16.dp),
+                )
+            }
+        },
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(title) },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Filled.Menu, contentDescription = "Menu")
+                        }
+                    },
+                    actions = actions,
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Colors.Bar,
+                        titleContentColor = Color.White,
+                        navigationIconContentColor = Color.White,
+                        actionIconContentColor = Color.White,
+                    ),
+                )
+            },
+            containerColor = Color.White,
+        ) { padding ->
+            Box(Modifier.fillMaxSize().padding(padding)) { content() }
+        }
+    }
+}

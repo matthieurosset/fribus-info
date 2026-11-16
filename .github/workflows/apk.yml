@@ -1,0 +1,41 @@
+name: APK
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Base d'horaires embarquee
+        run: scripts/fetch_timetable.sh
+      - name: Keystore
+        env:
+          FRIBUS_KEYSTORE_B64: ${{ secrets.FRIBUS_KEYSTORE_B64 }}
+        run: echo "$FRIBUS_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+      - name: Build et tests
+        env:
+          FRIBUS_KEYSTORE: ${{ runner.temp }}/release.keystore
+          FRIBUS_STORE_PASSWORD: ${{ secrets.FRIBUS_STORE_PASSWORD }}
+          FRIBUS_KEY_PASSWORD: ${{ secrets.FRIBUS_KEY_PASSWORD }}
+          FRIBUS_VERSION_CODE: ${{ github.run_number }}
+        run: ./gradlew assembleRelease testDebugUnitTest
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "FriBusInfo-${GITHUB_REF_NAME}.apk"
+          gh release create "$GITHUB_REF_NAME" "FriBusInfo-${GITHUB_REF_NAME}.apk" \
+            --title "$GITHUB_REF_NAME" --notes "FriBus Info $GITHUB_REF_NAME"
