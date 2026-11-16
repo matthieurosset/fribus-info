@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import ch.fribusinfo.location.AndroidLocationSource
 import ch.fribusinfo.ui.NearbyScreen
+import ch.fribusinfo.ui.DeparturesScreen
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -52,7 +53,11 @@ private fun App() {
         composable(
             Routes.STOP,
             arguments = listOf(navArgument("stopId") { type = NavType.LongType }),
-        ) { Placeholder("Arrêt", nav) }
+        ) { entry ->
+            val app = LocalContext.current.applicationContext as FriBusApp
+            val repo by app.timetable.repository.collectAsState()
+            DeparturesScreen(nav, repo, app.favorites, entry.arguments!!.getLong("stopId"))
+        }
         composable(
             Routes.TRIP,
             arguments = listOf(

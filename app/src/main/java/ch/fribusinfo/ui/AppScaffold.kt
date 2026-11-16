@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -69,6 +71,7 @@ private val entries = listOf(
 fun AppScaffold(
     title: String,
     navController: NavController,
+    onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable () -> Unit,
 ) {
@@ -139,10 +142,16 @@ fun AppScaffold(
                     Modifier.fillMaxWidth().height(56.dp).background(Colors.Bar),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                        Icon(Icons.Filled.Menu, contentDescription = "Menu", tint = Color.White)
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour", tint = Color.White)
+                        }
+                    } else {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Filled.Menu, contentDescription = "Menu", tint = Color.White)
+                        }
                     }
-                    Text(title, color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                    Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 8.dp))
                     CompositionLocalProvider(LocalContentColor provides Color.White) { actions() }
                 }
             },
