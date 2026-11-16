@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 
 /** Favourite stop ids and the "show times instead of minutes" choice, kept in SharedPreferences. */
 class Favorites(context: Context) {
@@ -18,8 +19,8 @@ class Favorites(context: Context) {
     val absoluteTime: StateFlow<Boolean> = _absoluteTime.asStateFlow()
 
     fun toggle(id: Long) {
-        val next = _ids.value.let { if (id in it) it - id else it + id }
-        _ids.value = next
+        _ids.update { if (id in it) it - id else it + id }
+        val next = _ids.value
         prefs.edit().putStringSet(KEY_IDS, next.map { it.toString() }.toSet()).apply()
     }
 

@@ -8,15 +8,36 @@ object TimetableDb {
     private const val ASSET = "timetable.db"
     const val FILE = "timetable.db"
 
-    /** Copies the bundled timetable to filesDir on first run or when the bundled
-     *  meta.version is newer than the installed one, then opens it read-only. */
-    fun open(context: Context): SQLiteDatabase {
-        val target = File(context.filesDir, FILE)
-        val bundled = bundledVersion(context)
-        if (!target.exists() || (bundled != null && bundled > (versionOf(target) ?: "")) ) {
-            copyBundled(context, target)
+    /** Blocking (file copy, sqlite): call off the main thread.
+     *  Copies the bundled timetable to filesDir on first run or when the bundled meta.version is
+     *  newer than the installed one, then opens it read-only. The bundled asset is only re-checked
+     *  when the app package changed (PackageInfo.lastUpdateTime differs from the one stored at the
+     *  last check); otherwise a readable installed file is opened without touching the asset. */
+    fun open(context: Context, asset: String = ASSET, fileName: String = FILE): SQLiteDatabase {
+        val target = File(context.filesDir, fileName)
+        val prefs = context.getSharedPreferences("timetable_db", Context.MODE_PRIVATE)
+        val key = "checked_update_time_$fileName"
+        val stamp = packageStamp(context)
+        if (target.exists() && prefs.getLong(key, -1L) == stamp) {
+            try {
+                return SQLiteDatabase.openDatabase(target.path, null, SQLiteDatabase.OPEN_READONLY)
+            } catch (e: Exception) {
+                // unreadable: fall through to the full check / reinstall
+            }
         }
+        val bundled = bundledVersion(context, asset)
+        val installed = if (target.exists()) versionOf(target) else null
+        if (installed == null || (bundled != null && bundled > installed)) {
+            copyBundled(context, asset, target)
+        }
+        prefs.edit().putLong(key, stamp).apply()
         return SQLiteDatabase.openDatabase(target.path, null, SQLiteDatabase.OPEN_READONLY)
+    }
+
+    private fun packageStamp(context: Context): Long = try {
+        context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
+    } catch (e: Exception) {
+        0L
     }
 
     fun versionOf(file: File): String? = try {
@@ -29,26 +50,28 @@ object TimetableDb {
         null
     }
 
-    private fun bundledVersion(context: Context): String? {
+    private fun bundledVersion(context: Context, asset: String): String? {
+        context.cacheDir.mkdirs()
         val tmp = File(context.cacheDir, "bundled-probe.db")
         return try {
-            copyAsset(context, tmp)
+            copyAsset(context, asset, tmp)
             versionOf(tmp)
         } finally {
             tmp.delete()
         }
     }
 
-    private fun copyBundled(context: Context, target: File) {
-        val tmp = File(target.parentFile, "$FILE.tmp")
-        copyAsset(context, tmp)
+    private fun copyBundled(context: Context, asset: String, target: File) {
+        target.parentFile?.mkdirs()
+        val tmp = File(target.parentFile, "${target.name}.tmp")
+        copyAsset(context, asset, tmp)
         if (!tmp.renameTo(target)) {
             target.delete()
             check(tmp.renameTo(target)) { "cannot install timetable" }
         }
     }
 
-    private fun copyAsset(context: Context, to: File) {
-        context.assets.open(ASSET).use { i -> to.outputStream().use { i.copyTo(it) } }
+    private fun copyAsset(context: Context, asset: String, to: File) {
+        context.assets.open(asset).use { i -> to.outputStream().use { i.copyTo(it) } }
     }
 }

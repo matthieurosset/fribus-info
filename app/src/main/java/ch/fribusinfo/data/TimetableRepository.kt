@@ -12,10 +12,20 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+/** Every method does disk I/O (the first call also loads the calendar, lines and stop-lines
+ *  tables): call them off the main thread, e.g. on Dispatchers.IO. */
 class TimetableRepository(
     private val db: SQLiteDatabase,
     private val zone: ZoneId = ZoneId.of("Europe/Zurich"),
 ) {
+    /** Loads the lazy tables now; call on IO right after opening. */
+    fun warmUp() {
+        calendar
+        lines
+        lineOrder
+        stopLines
+    }
+
     private val calendar by lazy { ServiceCalendar.load(db) }
     private val lines: Map<Int, Line> by lazy {
         val m = LinkedHashMap<Int, Line>()
