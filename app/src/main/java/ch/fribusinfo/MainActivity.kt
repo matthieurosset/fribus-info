@@ -18,7 +18,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import ch.fribusinfo.ui.AppScaffold
+import ch.fribusinfo.ui.SearchScreen
+import ch.fribusinfo.ui.FavoritesScreen
 import ch.fribusinfo.ui.FriBusTheme
 import ch.fribusinfo.ui.Routes
 import ch.fribusinfo.ui.TripScreen
@@ -49,8 +50,15 @@ private fun App() {
             val repo by (ctx.applicationContext as FriBusApp).timetable.repository.collectAsState()
             NearbyScreen(nav, repo, locations)
         }
-        composable(Routes.SEARCH) { Placeholder("Rechercher", nav) }
-        composable(Routes.FAVORITES) { Placeholder("Favoris", nav) }
+        composable(Routes.SEARCH) {
+            val repo by (LocalContext.current.applicationContext as FriBusApp).timetable.repository.collectAsState()
+            SearchScreen(nav, repo)
+        }
+        composable(Routes.FAVORITES) {
+            val app = LocalContext.current.applicationContext as FriBusApp
+            val repo by app.timetable.repository.collectAsState()
+            FavoritesScreen(nav, repo, app.favorites)
+        }
         composable(
             Routes.STOP,
             arguments = listOf(navArgument("stopId") { type = NavType.LongType }),
@@ -80,10 +88,4 @@ private fun App() {
             )
         }
     }
-}
-
-// Ecrans vides : remplis par les taches suivantes.
-@Composable
-private fun Placeholder(title: String, nav: androidx.navigation.NavController) {
-    AppScaffold(title = title, navController = nav) { }
 }

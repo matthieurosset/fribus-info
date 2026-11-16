@@ -75,6 +75,7 @@ fun AppScaffold(
     navController: NavController,
     onBack: (() -> Unit)? = null,
     titleBadge: ch.fribusinfo.data.Line? = null,
+    titleContent: (@Composable () -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable () -> Unit,
 ) {
@@ -154,7 +155,9 @@ fun AppScaffold(
                             Icon(Icons.Filled.Menu, contentDescription = "Menu", tint = Color.White)
                         }
                     }
-                    Row(Modifier.weight(1f).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (titleContent != null) {
+                        Box(Modifier.weight(1f).padding(start = 8.dp)) { titleContent() }
+                    } else Row(Modifier.weight(1f).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (titleBadge != null) {
                             Box(Modifier.testTag("title-badge")) { LineBadge(titleBadge) }
                             Spacer(Modifier.width(6.dp))
