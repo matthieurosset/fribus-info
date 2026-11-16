@@ -44,7 +44,7 @@ ROUTES = [
 # Feed 2 reuses the very same service_id and trip_id strings with other content.
 
 
-def _feed(n, extras):
+def _feed(n, extras, agency791=False):
     d = 0 if n == 1 else 600  # feed 2 runs 10 minutes later
     def hm(base_h, base_m, extra=0):
         s = base_h * 3600 + base_m * 60 + d + extra
@@ -64,6 +64,9 @@ def _feed(n, extras):
         ("r124", "TA", "T124", "Posieux", [("8500999:0:1", hm(12, 0), 1)]),
         ("rbern2", "TA", "TBERN", "Bern", [("8507000:0:1", hm(13, 0), 1)]),
     ]
+    if n == 1 and agency791:
+        # urban line 3 published by agency 791 (tf) instead of 834, as in the 2027 feed
+        trips.append(("r3", "TA", "T3", "Fribourg, Ligne 3", [("8587255:0:1", hm(17, 0), 1)]))
     if n == 1 and extras:
         # services for the build-date filter: expired, ending the day before 2026-04-01,
         # and one whose only active date is an added exception (2026-09-01)
@@ -96,11 +99,12 @@ def _csv(header, rows):
     return ("﻿" + buf.getvalue()).encode("utf-8")
 
 
-def write_fixture_gtfs(path, feed=1, extras=False):
+def write_fixture_gtfs(path, feed=1, extras=False, agency791=False):
     """Write a small GTFS zip. feed=1 is the current year, feed=2 the next one
     (same service_id / trip_id strings, different calendars and times).
     extras=True adds three feed-1 trips with services that expire at different dates."""
-    trips, calendar, dates = _feed(feed, extras)
+    trips, calendar, dates = _feed(feed, extras, agency791)
+    routes = ROUTES + ([("r3", "791", "3", "", "B", 700)] if agency791 else [])
     trip_rows, st_rows = [], []
     for route, service, tid, headsign, sts in trips:
         trip_rows.append((route, service, tid, headsign, "", 0, "", "", ""))
@@ -108,7 +112,7 @@ def write_fixture_gtfs(path, feed=1, extras=False):
             st_rows.append((tid, t, t, stop_id, seq, 0, 0))
     files = {
         "stops.txt": _csv(STOPS_HEADER, [r[:7] + ("",) + r[7:] for r in STOPS]),
-        "routes.txt": _csv(ROUTES_HEADER, ROUTES),
+        "routes.txt": _csv(ROUTES_HEADER, routes),
         "trips.txt": _csv(TRIPS_HEADER, trip_rows),
         "stop_times.txt": _csv(STOP_TIMES_HEADER, st_rows),
         "calendar.txt": _csv(CALENDAR_HEADER, calendar),

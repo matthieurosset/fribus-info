@@ -41,6 +41,17 @@ class BuildTest(unittest.TestCase):
         # route 2 of agency 11 and route 124 are gone
         self.assertEqual(self.q("SELECT count(*) FROM trip WHERE headsign IN ('Bern','Posieux')"), [(0,)])
 
+    def test_agency_791_urban_line_kept(self):
+        # the 2027 feed publishes urban lines under agency 791 instead of 834
+        c = os.path.join(self.tmp.name, "c.zip")
+        fixture_gtfs.write_fixture_gtfs(c, feed=1, agency791=True)
+        out = os.path.join(self.tmp.name, "c.db")
+        bt.build([c], self.cfg, out, build_date="20260401")
+        db = sqlite3.connect(out)
+        self.addCleanup(db.close)
+        self.assertEqual(db.execute("SELECT count(*) FROM trip t JOIN line l ON l.id=t.line_id "
+                                    "WHERE l.label='3'").fetchone(), (1,))
+
     def test_funicular_label_and_border(self):
         self.assertEqual(self.q("SELECT bordered, bg, fg FROM line WHERE label='FUN'"),
                          [(1, 0xFFFFFF, 0x000000)])
