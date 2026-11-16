@@ -36,10 +36,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import ch.fribusinfo.data.StopWithLines
+import ch.fribusinfo.data.shouldReloadNearby
 import ch.fribusinfo.data.TimetableRepository
 import ch.fribusinfo.location.LocationSource
 import kotlinx.coroutines.Dispatchers
@@ -108,13 +110,19 @@ fun NearbyScreen(
     val lat = location?.latitude
     val lon = location?.longitude
     var stops by remember { mutableStateOf<List<StopWithLines>?>(null) }
+    // Position the shown list was computed for: the list is only recomputed after a move of 100 m
+    // or more (like the old app), or on the target button / a new database.
+    var anchor by remember(repository) { mutableStateOf<Pair<Double, Double>?>(null) }
     LaunchedEffect(repository, lat, lon) {
         if (repository == null || lat == null || lon == null) {
             stops = null
+            anchor = null
             return@LaunchedEffect
         }
+        if (!shouldReloadNearby(anchor?.first, anchor?.second, lat, lon)) return@LaunchedEffect
         try {
             stops = withContext(Dispatchers.IO) { repository.nearby(lat, lon) }
+            anchor = lat to lon
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -149,7 +157,7 @@ fun NearbyScreen(
         when {
             isPositionUnavailable(resolved, located, location != null) -> Message("Position indisponible", "unavailable")
             list == null -> Unit
-            list.isEmpty() -> Message("Aucun arrêt à proximité", "empty")
+            list.isEmpty() -> Message("Aucun résultat", "empty")
             else -> LazyColumn(state = listState) {
                 items(list, key = { it.stop.id }) { s ->
                     StopRow(s) { navController.navigate(Routes.stop(s.stop.id)) }
@@ -162,6 +170,6 @@ fun NearbyScreen(
 @Composable
 private fun Message(text: String, tag: String) {
     Box(Modifier.fillMaxSize().testTag(tag), contentAlignment = Alignment.Center) {
-        Text(text, color = Colors.Secondary, fontSize = 18.sp, textAlign = TextAlign.Center)
+        Text(text, color = Colors.Disabled, fontSize = 18.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
     }
 }

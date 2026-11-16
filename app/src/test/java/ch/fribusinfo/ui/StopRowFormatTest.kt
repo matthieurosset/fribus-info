@@ -4,12 +4,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class StopRowFormatTest {
-    @Test fun distanceRoundsToNearest25() {
-        assertEquals("125 m", formatDistance(125))
-        assertEquals("125 m", formatDistance(137))
-        assertEquals("150 m", formatDistance(138))
-        assertEquals("0 m", formatDistance(5))
-        assertEquals("1950 m", formatDistance(1949))
+    @Test fun distanceRoundsUpToNext25() {
+        assertEquals("25 m", formatDistance(0))
+        assertEquals("25 m", formatDistance(24))
+        assertEquals("50 m", formatDistance(25))
+        assertEquals("150 m", formatDistance(137))
+        assertEquals("150 m", formatDistance(125))
+        assertEquals("525 m", formatDistance(500))
     }
 
     @Test fun badgeSlotsShowAllUpToEight() {

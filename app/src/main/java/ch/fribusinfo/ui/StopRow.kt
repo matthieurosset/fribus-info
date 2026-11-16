@@ -24,13 +24,15 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ch.fribusinfo.data.Line
 import ch.fribusinfo.data.StopWithLines
 
-/** « 125 m »: nearest 25 m, always meters (like the old app). */
-fun formatDistance(meters: Int): String = "${((meters + 12) / 25) * 25} m"
+/** « 150 m »: always rounded UP to the next multiple of 25 m, like the old app (0-24 m -> 25 m,
+ *  25 m -> 50 m), so never « 0 m ». */
+fun formatDistance(meters: Int): String = "${(meters / 25 + 1) * 25} m"
 
 /** Which badges to show (indices) and whether a trailing « … » follows: all up to 8 lines,
  *  else 7 badges + « … ». */
@@ -49,8 +51,8 @@ fun StopRow(item: StopWithLines, onClick: () -> Unit) {
             val d = item.distanceMeters
             if (d != null) {
                 Column(Modifier.width(50.dp).padding(top = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Filled.Place, contentDescription = null, tint = Colors.Secondary, modifier = Modifier.size(26.dp).graphicsLayer(scaleX = 0.87f))
-                    Text(formatDistance(d), color = Colors.Secondary, fontSize = 12.sp, maxLines = 1)
+                    Icon(Icons.Filled.Place, contentDescription = null, tint = Colors.Subtitle, modifier = Modifier.size(26.dp).graphicsLayer(scaleX = 0.87f))
+                    Text(formatDistance(d), color = Colors.Subtitle, fontSize = 12.sp, maxLines = 1)
                 }
             } else {
                 Box(Modifier.width(16.dp))
@@ -61,11 +63,11 @@ fun StopRow(item: StopWithLines, onClick: () -> Unit) {
                     text = item.stop.name, fontSize = 17.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold,
                     color = Color.Black, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
-                Text(item.stop.commune, fontSize = 13.5.sp, lineHeight = 15.5.sp, color = Colors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(item.stop.commune, fontSize = 13.5.sp, lineHeight = 15.5.sp, color = Colors.Subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Badges(item.lines)
         }
-        HorizontalDivider(color = Colors.Divider, thickness = 1.dp)
+        HorizontalDivider(color = Colors.Divider, thickness = Dp.Hairline)
     }
 }
 
@@ -74,12 +76,12 @@ fun StopRow(item: StopWithLines, onClick: () -> Unit) {
 fun Badges(lines: List<Line>) {
     val (shown, more) = badgeSlots(lines.size)
     val cells: List<Line?> = shown.map { lines[it - 1] } + if (more) listOf(null) else emptyList()
-    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(1.dp)) {
         cells.chunked(4).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(1.dp), verticalAlignment = Alignment.CenterVertically) {
                 row.forEach { line ->
                     if (line != null) LineBadge(line)
-                    else Text("…", color = Colors.Secondary, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 4.dp))
+                    else Text("…", color = Colors.Subtitle, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 4.dp))
                 }
             }
         }

@@ -13,7 +13,10 @@ object Colors {
     val PassedBottom = Color(0xFFDDDDDD)
     val Gray = Color(0xFF666666)
     val Disabled = Color(0xFF8F8F8F)
-    val Divider = Color(0xFFE0E0E0)
+    val Divider = Color(0xFFAAAAAA)
+    val Subtitle = Color(0xFF888888)   // list_subtitle_normal
+    val DrawerText = Color(0xFF666666)
+    val DrawerSelected = Color(0xFFE6E6E6)
     val Secondary = Color(0xFF858585)
     val PearlLine = Color(0xFF999696)
     val PearlCurrent = Color(0xFF7289BA)

@@ -85,6 +85,13 @@ class DepartureLabelTest {
         assertEquals(DepartureState.PASSED, departureState(dep(30), now, Duration.ofMinutes(-2)))
     }
 
+    @Test fun stateBoundaries() {
+        // 12:00:00 now: 11:59:59 and 11:59:00 are the previous minute, 12:00:00 is now
+        assertEquals(DepartureState.PASSED, departureState(dep(-60), now, null))
+        assertEquals(DepartureState.PASSED, departureState(dep(-1), now, null))
+        assertEquals(DepartureState.NOW, departureState(dep(0), now, null))
+    }
+
     private fun d(id: Long, sec: Long, headsign: String = "h") = dep(sec, headsign, id)
     private fun ids(l: List<Departure>) = l.map { it.tripId }
 

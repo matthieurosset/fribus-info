@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,7 +53,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
-/** « Aucun arrêt trouvé » only once the current query has actually been resolved. */
+/** « Aucun résultat » only once the current query has actually been resolved. */
 fun shouldShowNoMatch(query: String, resolvedQuery: String?, resultsEmpty: Boolean) =
     query.isNotBlank() && resolvedQuery == query && resultsEmpty
 
@@ -76,7 +77,7 @@ fun SearchScreen(navController: NavController, repository: TimetableRepository?)
 
     LaunchedEffect(repository, query) {
         if (repository == null || query.isBlank()) { results = emptyList(); resolvedQuery = null; return@LaunchedEffect }
-        delay(150)
+        delay(300)
         val found = try {
             withContext(Dispatchers.IO) { repository.search(query) }
         } catch (e: CancellationException) {
@@ -99,7 +100,7 @@ fun SearchScreen(navController: NavController, repository: TimetableRepository?)
                 Spacer(Modifier.width(12.dp))
                 Box(Modifier.weight(1f)) {
                     if (query.isEmpty()) {
-                        Text("Rechercher un arrêt", color = Color.White.copy(alpha = 0.7f), fontSize = 18.sp, maxLines = 1)
+                        Text("Rechercher station", color = Color.White.copy(alpha = 0.7f), fontSize = 18.sp, maxLines = 1)
                     }
                     BasicTextField(
                         value = query,
@@ -140,6 +141,9 @@ fun SearchScreen(navController: NavController, repository: TimetableRepository?)
 @Composable
 private fun NoMatch() {
     Box(Modifier.fillMaxSize().testTag("empty"), contentAlignment = Alignment.Center) {
-        Text("Aucun arrêt trouvé", color = Colors.Secondary, fontSize = 18.sp, textAlign = TextAlign.Center)
+        Text(
+            "Aucun résultat", color = Colors.Disabled, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+        )
     }
 }

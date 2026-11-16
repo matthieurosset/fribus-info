@@ -41,6 +41,7 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.unit.Dp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -172,7 +173,7 @@ fun DepartureRow(dep: Departure, now: ZonedDateTime, absolute: Boolean, delay: D
                 )
             }
         }
-        HorizontalDivider(color = Colors.Divider, thickness = 1.dp)
+        HorizontalDivider(color = Colors.Divider, thickness = Dp.Hairline)
     }
 }
 

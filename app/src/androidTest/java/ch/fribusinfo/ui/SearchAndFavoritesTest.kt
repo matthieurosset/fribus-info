@@ -58,7 +58,7 @@ class SearchAndFavoritesTest {
 
     @Test fun typingGareListsStopsWithoutDistance() {
         show("search")
-        rule.onNodeWithText("Rechercher un arrêt").assertIsDisplayed()
+        rule.onNodeWithText("Rechercher station").assertIsDisplayed()
         rule.onNodeWithTag("search-field").performTextInput("gare")
         waitRows()
         val first = rows().fetchSemanticsNodes().size
@@ -72,14 +72,14 @@ class SearchAndFavoritesTest {
         waitRows()
         rule.onNodeWithContentDescription("Effacer").performClick()
         rule.waitUntil(5000) { rows().fetchSemanticsNodes().isEmpty() }
-        rule.onNodeWithText("Rechercher un arrêt").assertIsDisplayed()
+        rule.onNodeWithText("Rechercher station").assertIsDisplayed()
     }
 
     @Test fun noMatchShowsMessage() {
         show("search")
         rule.onNodeWithTag("search-field").performTextInput("zzzzqq")
         rule.waitUntil(5000) { rule.onAllNodesWithTag("empty").fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithText("Aucun arrêt trouvé").assertIsDisplayed()
+        rule.onNodeWithText("Aucun résultat").assertIsDisplayed()
     }
 
     @Test fun tappingResultOpensStop() {
@@ -92,14 +92,14 @@ class SearchAndFavoritesTest {
 
     @Test fun favoritesEmptyState() {
         show("favorites")
-        rule.onNodeWithText("Aucun arrêt favori").assertIsDisplayed()
+        rule.onNodeWithText("La liste des favoris est vide. Définissez un ou plusieurs favori(s).").assertIsDisplayed()
         rule.onNodeWithContentDescription("Menu").assertIsDisplayed()
     }
 
-    @Test fun favoritesSortedByNameAndLive() {
-        val all = repo.search("gare", 50).map { it.stop }.sortedBy { it.name }
+    @Test fun favoritesMostRecentFirstAndLive() {
+        val all = repo.search("gare").map { it.stop }
         val a = all.first(); val b = all.last { it.id != a.id }
-        favorites.toggle(b.id); favorites.toggle(a.id)
+        favorites.toggle(b.id); favorites.toggle(a.id)   // a added last: listed first
         show("favorites")
         waitRows()
         rows().assertCountEquals(2)

@@ -52,7 +52,7 @@ class NearbyScreenTest {
         rule.waitUntil(5000) { rule.onAllNodesWithTag("stop-row").fetchSemanticsNodes().isNotEmpty() }
         rule.onAllNodesWithTag("stop-row")[0]
             .assert(hasText("Neuveville/Motta"))
-            .assert(hasText("100 m"))
+            .assert(hasText("125 m"))
     }
 
     @Test fun noLocationShowsMessageAndDrawerStillWorks() {
@@ -65,6 +65,6 @@ class NearbyScreenTest {
     @Test fun farFromFribourgShowsNoStopMessage() {
         show(fake(47.3769, 8.5417))
         rule.waitUntil(5000) { rule.onAllNodesWithTag("empty").fetchSemanticsNodes().isNotEmpty() }
-        rule.onNodeWithText("Aucun arrêt à proximité").assertIsDisplayed()
+        rule.onNodeWithText("Aucun résultat").assertIsDisplayed()
     }
 }

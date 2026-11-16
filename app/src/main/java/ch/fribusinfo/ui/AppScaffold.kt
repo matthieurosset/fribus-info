@@ -139,7 +139,7 @@ fun AppScaffold(
                             Modifier
                                 .fillMaxWidth()
                                 .height(56.dp)
-                                .background(if (selected) Color(0xFFE5E5E5) else Color.White)
+                                .background(if (selected) Colors.DrawerSelected else Color.White)
                                 .clickable {
                                     scope.launch { drawerState.close() }
                                     if (!selected) {
@@ -154,7 +154,7 @@ fun AppScaffold(
                         ) {
                             Icon(e.icon, contentDescription = null, tint = Colors.Secondary, modifier = Modifier.size(26.dp))
                             Spacer(Modifier.width(27.dp))
-                            Text(e.label, fontSize = 17.sp, color = Color(0xFF424242))
+                            Text(e.label, fontSize = 17.sp, color = Colors.DrawerText)
                         }
                     }
                     Spacer(Modifier.weight(1f))
