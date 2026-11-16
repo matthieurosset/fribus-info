@@ -20,7 +20,7 @@ fun foldForSearch(s: String): String =
  *  appear, ignoring case and accents, in « commune name ». Result sorted by name then
  *  commune, no limit. A blank query matches nothing. */
 fun searchStops(stops: List<StopWithLines>, query: String): List<StopWithLines> {
-    val words = foldForSearch(query).split(' ', ',', '	').filter { it.isNotEmpty() }
+    val words = foldForSearch(query).split(' ', ',', '\t').filter { it.isNotEmpty() }
     if (words.isEmpty()) return emptyList()
     return stops
         .map { Triple(it, foldForSearch(it.stop.name), foldForSearch(it.stop.commune)) }
