@@ -8,6 +8,10 @@ object TimetableDb {
     private const val ASSET = "timetable.db"
     const val FILE = "timetable.db"
 
+    /** Serialises everything that writes or replaces the installed file (bundled install in
+     *  [open] via the holder, the updater's swap) and the temp/probe files they use. */
+    val installLock = kotlinx.coroutines.sync.Mutex()
+
     /** Blocking (file copy, sqlite): call off the main thread.
      *  Copies the bundled timetable to filesDir on first run or when the bundled meta.version is
      *  newer than the installed one, then opens it read-only. The bundled asset is only re-checked

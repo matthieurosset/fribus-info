@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /** Owns the current repository. [repository] is null while the database is being opened
@@ -20,8 +21,12 @@ class TimetableHolder(
     private val _repository = MutableStateFlow<TimetableRepository?>(null)
     val repository: StateFlow<TimetableRepository?> = _repository.asStateFlow()
 
-    /** Opens the database in [scope] on IO and publishes the warmed-up repository. */
+    private val started = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /** Opens the database in [scope] on IO and publishes the warmed-up repository.
+     *  Idempotent: only the first call does anything. */
     fun start(scope: CoroutineScope) {
+        if (!started.compareAndSet(false, true)) return
         scope.launch(Dispatchers.IO) { _repository.value = openRepository() }
     }
 
@@ -33,8 +38,9 @@ class TimetableHolder(
         _repository.value = repo
     }
 
-    private fun openRepository(): TimetableRepository {
-        val db = TimetableDb.open(context, asset, fileName)
+    private suspend fun openRepository(): TimetableRepository {
+        // open() may install the bundled asset through shared temp/probe files
+        val db = TimetableDb.installLock.withLock { TimetableDb.open(context, asset, fileName) }
         return TimetableRepository(db).also { it.warmUp() }
     }
 }
