@@ -188,6 +188,51 @@ class BuildDateFilterTest(unittest.TestCase):
         meta = dict(db.execute("SELECT key, value FROM meta"))
         self.assertEqual(meta["valid_from"], "20261213")
 
+    def test_stop_line_only_from_near_window(self):
+        # TADD (the only service serving stop 8509998) is active on 2026-09-01 only
+        def lines_at(build_date):
+            db = self.run_build(build_date)
+            return db.execute("SELECT count(*) FROM stop_line WHERE stop_id=8509998").fetchone()[0], db
+        n, db = lines_at("20260401")
+        self.assertEqual(n, 0)
+        # the trip and the stop are still in the database, only the badge is withheld
+        self.assertEqual(db.execute("SELECT count(*) FROM stop WHERE id=8509998").fetchone(), (1,))
+        # window is [build-1, build+14]: 2026-09-01 is inside for 08-18 .. 09-02 only
+        self.assertEqual(lines_at("20260817")[0], 0)
+        self.assertEqual(lines_at("20260818")[0], 1)
+        self.assertEqual(lines_at("20260902")[0], 1)
+        self.assertEqual(lines_at("20260903")[0], 0)
+
+
+class FrequenciesTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        a = os.path.join(self.tmp.name, "a.zip")
+        fixture_gtfs.write_fixture_gtfs(a, feed=1, frequencies=True)
+        with open(LINES_JSON, encoding="utf-8") as f:
+            cfg = json.load(f)
+        out = os.path.join(self.tmp.name, "f.db")
+        bt.build([a], cfg, out, build_date="20260401")
+        self.db = sqlite3.connect(out)
+        self.addCleanup(self.db.close)
+
+    def test_headway_trip_expanded_with_shifted_times(self):
+        rows = self.db.execute("""SELECT t.id, st.seq, st.stop_id, st.dep FROM trip t
+            JOIN line l ON l.id=t.line_id JOIN stop_time st ON st.trip_id=t.id
+            WHERE l.label='FUN' AND t.headsign='Pérolles' AND st.seq<=2
+            AND t.id IN (SELECT trip_id FROM stop_time WHERE seq=2)
+            ORDER BY st.dep""").fetchall()
+        h = lambda hh, mm: hh * 3600 + mm * 60
+        self.assertEqual([r[3] for r in rows if r[1] == 1], [h(7, 0), h(7, 10), h(7, 20)])
+        self.assertEqual([r[3] for r in rows if r[1] == 2], [h(7, 5), h(7, 15), h(7, 25)])
+        self.assertEqual(len({r[0] for r in rows}), 3)   # template not kept on top of its expansions
+
+    def test_frequency_of_other_agency_ignored_and_plain_trip_kept(self):
+        self.assertEqual(self.db.execute("SELECT count(*) FROM trip t JOIN line l ON l.id=t.line_id "
+                                         "WHERE l.label='FUN'").fetchone(), (4,))  # TF + 3
+        self.assertEqual(self.db.execute("SELECT count(*) FROM trip WHERE headsign='Bern'").fetchone(), (0,))
+
 
 if __name__ == "__main__":
     unittest.main()

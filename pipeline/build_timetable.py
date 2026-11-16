@@ -87,16 +87,19 @@ def today_zurich():
         return datetime.date.today()
 
 
-def _is_live(cal, exceptions, cutoff):
-    """True if the service runs on at least one date >= cutoff (a date)."""
-    c = int(cutoff.strftime("%Y%m%d"))
+def _is_active(cal, exceptions, lo, hi=None):
+    """True if the service runs on at least one date in [lo, hi] (dates; hi None = no upper bound)."""
+    c = int(lo.strftime("%Y%m%d"))
+    h = int(hi.strftime("%Y%m%d")) if hi else None
     removed = {d for d, t in exceptions if t == 2}
-    if any(t == 1 and d >= c for d, t in exceptions):
+    if any(t == 1 and d >= c and (h is None or d <= h) for d, t in exceptions):
         return True
     if cal:
         start, end, days = cal
-        d = max(datetime.datetime.strptime(str(start), "%Y%m%d").date(), cutoff)
+        d = max(datetime.datetime.strptime(str(start), "%Y%m%d").date(), lo)
         last = datetime.datetime.strptime(str(end), "%Y%m%d").date()
+        if hi and hi < last:
+            last = hi
         while d <= last:
             if days >> d.weekday() & 1 and int(d.strftime("%Y%m%d")) not in removed:
                 return True
@@ -156,7 +159,10 @@ def build(gtfs_paths, lines_cfg, out_path, build_date=None):
                     if r["service_id"] in wanted:
                         exc.setdefault(r["service_id"], []).append(
                             (int(r["date"]), int(r["exception_type"])))
-                live = {g for g in wanted if _is_live(cal.get(g), exc.get(g, []), cutoff)}
+                live = {g for g in wanted if _is_active(cal.get(g), exc.get(g, []), cutoff)}
+                # services running in the near window: only those feed the stop -> line badges
+                near = {g for g in live
+                        if _is_active(cal.get(g), exc.get(g, []), cutoff, day + datetime.timedelta(days=14))}
 
                 # 3. keep trips of live services
                 trip_map = {}      # gtfs trip_id -> (int id, line index)
@@ -166,6 +172,17 @@ def build(gtfs_paths, lines_cfg, out_path, build_date=None):
                         trip_map[gid] = (next_trip, line)
                         kept.append((next_trip, line, sgid, headsign))
                         next_trip += 1
+
+                # frequencies.txt: headway-based trips are expanded into individual trips
+                freq = {}
+                if "frequencies.txt" in zf.namelist():
+                    for r in _rows(zf, "frequencies.txt"):
+                        if r["trip_id"] in trip_map:
+                            freq.setdefault(r["trip_id"], []).append(
+                                (parse_time(r["start_time"]), parse_time(r["end_time"]),
+                                 int(r["headway_secs"])))
+                sg_of = {k[0]: k[2] for k in kept}
+                templates = {}     # gtfs trip_id -> [(seq, stop tuple, time)]
 
                 # stop_times: streamed, never held in memory
                 with zf.open("stop_times.txt") as raw:
@@ -184,14 +201,44 @@ def build(gtfs_paths, lines_cfg, out_path, build_date=None):
                         if stop is None or not time:
                             continue
                         didok = stop[0]
+                        if row[i_trip] in freq:
+                            templates.setdefault(row[i_trip], []).append(
+                                (int(row[i_seq]), stop, parse_time(time)))
+                            continue
                         stops[didok] = stop[1:]
                         with_times.add(t[0])
                         used_lines.add(t[1])
-                        stop_lines.add((didok, t[1]))
+                        if sg_of[t[0]] in near:
+                            stop_lines.add((didok, t[1]))
                         batch.append((t[0], int(row[i_seq]), didok, parse_time(time)))
                         if len(batch) >= BATCH:
                             db.executemany("INSERT INTO stop_time VALUES(?,?,?,?)", batch)
                             batch = []
+                    # expand each template trip into one trip per departure
+                    kept_by_id = {k[0]: k for k in kept}
+                    for gid, rows in templates.items():
+                        rows.sort(key=lambda r: r[0])
+                        first = rows[0][2]
+                        tid0, line = trip_map[gid]
+                        _, _, sgid, headsign = kept_by_id[tid0]
+                        for start, end, headway in freq[gid]:
+                            if headway <= 0:
+                                continue
+                            for t0 in range(start, end, headway):
+                                tid = next_trip
+                                next_trip += 1
+                                kept.append((tid, line, sgid, headsign))
+                                sg_of[tid] = sgid
+                                with_times.add(tid)
+                                used_lines.add(line)
+                                for seq, stop, tsec in rows:
+                                    stops[stop[0]] = stop[1:]
+                                    if sgid in near:
+                                        stop_lines.add((stop[0], line))
+                                    batch.append((tid, seq, stop[0], tsec + t0 - first))
+                                    if len(batch) >= BATCH:
+                                        db.executemany("INSERT INTO stop_time VALUES(?,?,?,?)", batch)
+                                        batch = []
                     db.executemany("INSERT INTO stop_time VALUES(?,?,?,?)", batch)
 
                 # 5. trips that kept stop_times, with the services they use

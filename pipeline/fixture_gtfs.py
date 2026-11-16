@@ -14,6 +14,7 @@ STOP_TIMES_HEADER = ["trip_id", "arrival_time", "departure_time", "stop_id",
 CALENDAR_HEADER = ["service_id", "monday", "tuesday", "wednesday", "thursday", "friday",
                    "saturday", "sunday", "start_date", "end_date"]
 CALENDAR_DATES_HEADER = ["service_id", "date", "exception_type"]
+FREQUENCIES_HEADER = ["trip_id", "start_time", "end_time", "headway_secs", "exact_times"]
 
 # (stop_id, name, lat, lon, location_type, parent, platform, didok); original_stop_id is left empty
 STOPS = [
@@ -29,6 +30,7 @@ STOPS = [
     ("8507000:0:1", "Bern, Bahnhof", 46.9488, 7.4391, 0, "", "", "8507000"),
     ("8500999:0:1", "Posieux, Ecole", 46.7500, 7.1000, 0, "", "", "8500999"),
     ("8509999:0:1", "Fribourg, Ancien", 46.8000, 7.1500, 0, "", "", "8509999"),
+    ("8509998:0:1", "Fribourg, Ajout", 46.8010, 7.1510, 0, "", "", "8509998"),
 ]
 
 ROUTES = [
@@ -44,7 +46,7 @@ ROUTES = [
 # Feed 2 reuses the very same service_id and trip_id strings with other content.
 
 
-def _feed(n, extras, agency791=False):
+def _feed(n, extras, agency791=False, frequencies=False):
     d = 0 if n == 1 else 600  # feed 2 runs 10 minutes later
     def hm(base_h, base_m, extra=0):
         s = base_h * 3600 + base_m * 60 + d + extra
@@ -67,6 +69,10 @@ def _feed(n, extras, agency791=False):
     if n == 1 and agency791:
         # urban line 3 published by agency 791 (tf) instead of 834, as in the 2027 feed
         trips.append(("r3", "TA", "T3", "Fribourg, Ligne 3", [("8587255:0:1", hm(17, 0), 1)]))
+    if n == 1 and frequencies:
+        # funicular-style headway trip (template) plus a headway trip of another agency
+        trips.append(("rfun", "TA", "TFREQ", "Fribourg, Pérolles",
+                      [("8530013:0:1", "07:00:00", 1), ("8587255:0:1", "07:05:00", 2)]))
     if n == 1 and extras:
         # services for the build-date filter: expired, ending the day before 2026-04-01,
         # and one whose only active date is an added exception (2026-09-01)
@@ -74,7 +80,7 @@ def _feed(n, extras, agency791=False):
             ("r1", "TOLD", "TOLDT", "Fribourg, Ancien",
              [("8509999:0:1", hm(14, 0), 1), ("8587255:0:1", hm(14, 5), 2)]),
             ("r1", "TEDGE", "TEDGET", "Fribourg, Marge", [("8587255:0:1", hm(15, 0), 1)]),
-            ("r1", "TADD", "TADDT", "Fribourg, Ajout", [("8587255:0:1", hm(16, 0), 1)]),
+            ("r1", "TADD", "TADDT", "Fribourg, Ajout", [("8509998:0:1", hm(16, 0), 1)]),
         ]
     if n == 1:
         calendar = [("TA", 1, 1, 1, 1, 1, 0, 0, 20251214, 20261212),
@@ -99,11 +105,11 @@ def _csv(header, rows):
     return ("﻿" + buf.getvalue()).encode("utf-8")
 
 
-def write_fixture_gtfs(path, feed=1, extras=False, agency791=False):
+def write_fixture_gtfs(path, feed=1, extras=False, agency791=False, frequencies=False):
     """Write a small GTFS zip. feed=1 is the current year, feed=2 the next one
     (same service_id / trip_id strings, different calendars and times).
     extras=True adds three feed-1 trips with services that expire at different dates."""
-    trips, calendar, dates = _feed(feed, extras, agency791)
+    trips, calendar, dates = _feed(feed, extras, agency791, frequencies)
     routes = ROUTES + ([("r3", "791", "3", "", "B", 700)] if agency791 else [])
     trip_rows, st_rows = [], []
     for route, service, tid, headsign, sts in trips:
@@ -118,6 +124,11 @@ def write_fixture_gtfs(path, feed=1, extras=False, agency791=False):
         "calendar.txt": _csv(CALENDAR_HEADER, calendar),
         "calendar_dates.txt": _csv(CALENDAR_DATES_HEADER, dates),
     }
+    if frequencies and feed == 1:
+        # TFREQ: 07:00-07:30 every 10 min -> 07:00, 07:10, 07:20; TBERN belongs to another agency
+        files["frequencies.txt"] = _csv(FREQUENCIES_HEADER, [
+            ("TFREQ", "07:00:00", "07:30:00", 600, 0),
+            ("TBERN", "08:00:00", "09:00:00", 600, 0)])
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         for name, data in files.items():
             z.writestr(name, data)
