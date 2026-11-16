@@ -63,14 +63,18 @@ class TimetableRepositoryTest {
         assertEquals(2, deps.size)
     }
 
-    @Test fun nearbySortedByDistanceAndWithin2km() {
-        val res = repo.nearby(46.8060, 7.1530)
+    @Test fun nearbyIsTheSquareAroundThePositionSortedByDistance() {
+        val res = repo.nearby(46.8075, 7.1560)
         val ids = res.map { it.stop.id }
-        assertEquals(listOf(8587255L, 8592385L, 8530013L), ids)
+        assertEquals(setOf(8587255L, 8592385L, 8530013L), ids.toSet())
         assertTrue(8504100L !in ids) // ~3 km away
         val dists = res.map { it.distanceMeters!! }
         assertEquals(dists.sorted(), dists)
-        assertTrue(dists.all { it <= 2000 })
+    }
+
+    @Test fun nearbyDropsStopsBeyondTheSquare() {
+        // Neuveville/Motta is ~560 m east of Tilleul: outside the 500 m square
+        assertEquals(listOf(8587255L), repo.nearby(46.8060, 7.1530).map { it.stop.id })
     }
 
     @Test fun searchIsAccentInsensitive() {

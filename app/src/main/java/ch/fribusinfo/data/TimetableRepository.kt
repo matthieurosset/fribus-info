@@ -6,11 +6,7 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import kotlin.math.asin
 import kotlin.math.cos
-import kotlin.math.roundToInt
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 /** Every method does disk I/O (the first call also loads the calendar, lines and stop-lines
  *  tables): call them off the main thread, e.g. on Dispatchers.IO. */
@@ -74,28 +70,21 @@ class TimetableRepository(
 
     fun stop(id: Long): StopWithLines? = stops("WHERE id = ?", arrayOf(id.toString())).firstOrNull()
 
-    fun nearby(lat: Double, lon: Double, maxMeters: Int = 2000, limit: Int = 15): List<StopWithLines> {
-        val dLat = maxMeters / 111_000.0
-        val dLon = maxMeters / (111_000.0 * cos(Math.toRadians(lat)).coerceAtLeast(0.01))
+    /** Stops inside the ±[radius] m square around the position (corners reach about 707 m),
+     *  nearest first, no count limit. Distances are the straight-line meters, truncated. */
+    fun nearby(lat: Double, lon: Double, radius: Int = NEARBY_RADIUS_METERS): List<StopWithLines> {
+        val dLat = radius * 1.05 / METERS_PER_DEGREE_BOX
+        val dLon = radius * 1.05 / (METERS_PER_DEGREE_BOX * cos(Math.toRadians(lat)).coerceAtLeast(0.01))
         return stops(
             "WHERE lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?",
             arrayOf((lat - dLat).toString(), (lat + dLat).toString(), (lon - dLon).toString(), (lon + dLon).toString()),
-        ).map { it.copy(distanceMeters = haversine(lat, lon, it.stop.lat, it.stop.lon).roundToInt()) }
-            .filter { it.distanceMeters!! <= maxMeters }
+        ).filter { isInNearbySquare(lat, lon, it.stop.lat, it.stop.lon, radius) }
+            .map { it.copy(distanceMeters = haversineMeters(lat, lon, it.stop.lat, it.stop.lon).toInt()) }
             .sortedBy { it.distanceMeters }
-            .take(limit)
     }
 
-    fun search(query: String, limit: Int = 50): List<StopWithLines> {
-        val q = foldForSearch(query).trim()
-        if (q.isEmpty()) return emptyList()
-        return stops()
-            .map { Triple(it, foldForSearch(it.stop.name), foldForSearch(it.stop.commune)) }
-            .filter { (_, name, commune) -> name.contains(q) || commune.contains(q) }
-            .sortedWith(compareBy({ !it.second.startsWith(q) }, { it.second }, { it.third }))
-            .map { it.first }
-            .take(limit)
-    }
+    /** Multi-word search, see [searchStops]. */
+    fun search(query: String): List<StopWithLines> = searchStops(stops(), query)
 
     /** Departures from [from] within [horizon]. Times past 24:00 belong to the previous service
      *  day, so the service dates yesterday (only dep >= 86400 can fall in the window) and today
@@ -164,14 +153,6 @@ class TimetableRepository(
             TripStop(s, seq, base.plusSeconds(dep))
         }
     }
-
-    private fun haversine(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val r = 6_371_000.0
-        val p1 = Math.toRadians(lat1)
-        val p2 = Math.toRadians(lat2)
-        val dp = p2 - p1
-        val dl = Math.toRadians(lon2 - lon1)
-        val a = sin(dp / 2) * sin(dp / 2) + cos(p1) * cos(p2) * sin(dl / 2) * sin(dl / 2)
-        return 2 * r * asin(sqrt(a))
-    }
 }
+
+private const val METERS_PER_DEGREE_BOX = 111_000.0

@@ -15,3 +15,16 @@ private val marks = Regex("\\p{M}+")
 /** Lower-case, accent-free form used to compare search text with stop names. */
 fun foldForSearch(s: String): String =
     Normalizer.normalize(s, Normalizer.Form.NFD).replace(marks, "").lowercase()
+
+/** Old-app search: the query is split into words (commas count as spaces); every word must
+ *  appear, ignoring case and accents, in « commune name ». Result sorted by name then
+ *  commune, no limit. A blank query matches nothing. */
+fun searchStops(stops: List<StopWithLines>, query: String): List<StopWithLines> {
+    val words = foldForSearch(query).split(' ', ',', '	').filter { it.isNotEmpty() }
+    if (words.isEmpty()) return emptyList()
+    return stops
+        .map { Triple(it, foldForSearch(it.stop.name), foldForSearch(it.stop.commune)) }
+        .filter { (_, name, commune) -> val hay = "$commune $name"; words.all { it in hay } }
+        .sortedWith(compareBy({ it.second }, { it.third }))
+        .map { it.first }
+}
