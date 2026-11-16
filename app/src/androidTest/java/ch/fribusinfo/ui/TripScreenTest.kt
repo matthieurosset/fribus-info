@@ -8,6 +8,7 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
@@ -37,6 +38,7 @@ class TripScreenTest {
     private lateinit var dep: Departure
     private lateinit var stops: List<TripStop>
     private var openedStop: String? = null
+    private lateinit var noon: ZonedDateTime
     private val chosenTag get() = "trip-row-${dep.seq}"
     private val terminusTag get() = "trip-row-${stops.last().seq}"
 
@@ -49,7 +51,7 @@ class TripScreenTest {
     @Before fun setUp() {
         repo = TimetableRepository(TimetableDb.open(ctx))
         // Today at noon: the bundled DB is rebuilt weekly and drops past trips, so no fixed date.
-        val noon = ZonedDateTime.now(ZoneId.of("Europe/Zurich")).withHour(12).withMinute(0).withSecond(0).withNano(0)
+        noon = ZonedDateTime.now(ZoneId.of("Europe/Zurich")).withHour(12).withMinute(0).withSecond(0).withNano(0)
         // A trip of TEST_LINE leaving TEST_STOP with at least one stop before it.
         dep = repo.departures(TEST_STOP, noon, limit = 500).firstOrNull { d ->
             d.line.label == TEST_LINE && repo.trip(d.tripId, d.serviceDate).first().seq < d.seq
@@ -58,11 +60,11 @@ class TripScreenTest {
     }
 
     private fun show() = rule.setContent {
-        FriBusTheme {
+        TestTheme {
             val nav = rememberNavController()
             NavHost(nav, "trip/{tripId}/{serviceDate}/{fromSeq}") {
                 composable("trip/{tripId}/{serviceDate}/{fromSeq}") {
-                    TripScreen(dep.tripId, dep.serviceDate, dep.seq, null, nav, repo, repo.version)
+                    TripScreen(dep.tripId, dep.serviceDate, dep.seq, null, nav, repo, repo.version, now = { noon })
                 }
                 composable("stop/{stopId}") { e -> openedStop = e.arguments?.getString("stopId") }
                 composable("search") { }
@@ -84,23 +86,28 @@ class TripScreenTest {
     @Test fun titleShowsBadgeAndHeadsign() {
         show(); waitRows()
         rule.onNodeWithTag("title-badge").assertIsDisplayed()
-        rule.onNodeWithText(dep.headsign).assertIsDisplayed()
+        rule.onAllNodesWithText(dep.headsign)[0].assertIsDisplayed()  // the pinned terminus can repeat it
     }
 
-    @Test fun minutesStartAtChosenStopAndBlankBefore() {
+    @Test fun everyStopShowsMinutesFromNow() {
         show(); waitRows()
         val ci = stops.indexOfFirst { it.seq == dep.seq }
-        val minutes = Regex("[0-9]+'")
-        val chosen = rowText(dep.seq)
-        assertTrue(chosen, chosen.contains("0'"))
-        // Previous stop (peeking above the chosen one) shows no minutes.
+        fun expected(i: Int) = formatMinutes(minutesFromNow(noon, stops[i].scheduled))
+        assertTrue(rowText(dep.seq), rowText(dep.seq).contains(expected(ci)))
         val prev = rowText(stops[ci - 1].seq)
-        assertTrue(prev, prev.contains(stops[ci - 1].stop.stop.name))
-        assertTrue(prev, !minutes.containsMatchIn(prev))
-        // The stop after the chosen one is labelled in whole minutes from it.
-        val expected = java.time.Duration.between(stops[ci].scheduled, stops[ci + 1].scheduled).seconds / 60
+        assertTrue(prev, prev.contains(stops[ci - 1].stop.stop.name) && prev.contains(expected(ci - 1)))
         val after = rowText(stops[ci + 1].seq)
-        assertTrue(after, after.contains("$expected'"))
+        assertTrue(after, after.contains(expected(ci + 1)))
+    }
+
+    @Test fun pinnedTerminusIsShownOnlyWhileTheRealOneIsOutOfView() {
+        show(); waitRows()
+        val shown = rule.onAllNodesWithTag(terminusTag).fetchSemanticsNodes().isNotEmpty() &&
+            runCatching { rule.onNodeWithTag(terminusTag).assertIsDisplayed() }.isSuccess
+        assertEquals(if (shown) 0 else 1, rule.onAllNodesWithTag("trip-pinned-terminus").fetchSemanticsNodes().size)
+        rule.onNodeWithTag("trip-list").performScrollToNode(hasTestTag(terminusTag))
+        rule.waitForIdle()
+        assertEquals(0, rule.onAllNodesWithTag("trip-pinned-terminus").fetchSemanticsNodes().size)
     }
 
     @Test fun chosenStopIsVisibleOnOpen() {
@@ -125,7 +132,7 @@ class TripScreenTest {
         assertEquals(Colors.PearlEnd.toArgb(), px[2 + 2 * img.width])
         val d = rule.density.density
         val dot = px[(PEARL_CX.value * d).toInt() + (img.height / 2) * img.width]
-        assertEquals(0xFF8B1010.toInt(), dot)
+        assertEquals(0xFF891313.toInt(), dot)
     }
 
     @Test fun tappingAStopOpensItsDepartures() {
@@ -138,7 +145,7 @@ class TripScreenTest {
     @Test fun routeFromAnotherDatabaseVersionPopsBackToDepartures() {
         lateinit var nav: androidx.navigation.NavHostController
         rule.setContent {
-            FriBusTheme {
+            TestTheme {
                 nav = rememberNavController()
                 NavHost(nav, "stop/{stopId}") {
                     composable("stop/{stopId}") { }
