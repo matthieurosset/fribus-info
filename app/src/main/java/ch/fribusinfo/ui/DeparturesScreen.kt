@@ -1,5 +1,6 @@
 package ch.fribusinfo.ui
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -46,11 +47,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavController
 import ch.fribusinfo.data.Departure
 import ch.fribusinfo.data.Favorites
 import ch.fribusinfo.data.StopWithLines
 import ch.fribusinfo.data.TimetableRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -146,14 +151,23 @@ fun DeparturesScreen(
     LaunchedEffect(repository, stopId) {
         stop = if (repository == null) null else withContext(Dispatchers.IO) { repository.stop(stopId) }
     }
-    // Bound to the composition: runs only while the screen is shown.
-    LaunchedEffect(repository, stopId) {
+    // Refreshes immediately on start and every tick while STARTED; stops in the background.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(repository, stopId, lifecycle) {
         if (repository == null) return@LaunchedEffect
-        while (true) {
-            val t = now()
-            departures = withContext(Dispatchers.IO) { repository.departures(stopId, t) }
-            current = t
-            delay(tickMillis)
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                val t = now()
+                try {
+                    departures = withContext(Dispatchers.IO) { repository.departures(stopId, t) }
+                    current = t
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w("DeparturesScreen", "departures refresh failed", e)
+                }
+                delay(tickMillis)
+            }
         }
     }
 
@@ -164,7 +178,7 @@ fun DeparturesScreen(
         navController = navController,
         onBack = { navController.popBackStack() },
         actions = {
-            IconButton(onClick = { navController.navigate(Routes.SEARCH) }) {
+            IconButton(onClick = { navController.navigate(Routes.SEARCH) { launchSingleTop = true } }) {
                 Icon(Icons.Filled.Search, contentDescription = "Recherche")
             }
             IconButton(onClick = {
