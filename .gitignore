@@ -1,0 +1,9 @@
+*.db
+*.zip
+keystore.properties
+*.keystore
+build/
+.gradle/
+local.properties
+app/src/main/assets/timetable.db
+__pycache__/
