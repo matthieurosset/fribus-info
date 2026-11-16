@@ -28,6 +28,7 @@ STOPS = [
     ("8504100:0:1", "Villars-sur-Glâne,Petit-Moncor", 46.7901, 7.1201, 0, "Parentch:1:sloid:04100", "1", "8504100"),
     ("8507000:0:1", "Bern, Bahnhof", 46.9488, 7.4391, 0, "", "", "8507000"),
     ("8500999:0:1", "Posieux, Ecole", 46.7500, 7.1000, 0, "", "", "8500999"),
+    ("8509999:0:1", "Fribourg, Ancien", 46.8000, 7.1500, 0, "", "", "8509999"),
 ]
 
 ROUTES = [
@@ -43,7 +44,7 @@ ROUTES = [
 # Feed 2 reuses the very same service_id and trip_id strings with other content.
 
 
-def _feed(n):
+def _feed(n, extras):
     d = 0 if n == 1 else 600  # feed 2 runs 10 minutes later
     def hm(base_h, base_m, extra=0):
         s = base_h * 3600 + base_m * 60 + d + extra
@@ -62,10 +63,24 @@ def _feed(n):
         ("r124", "TA", "T124", "Posieux", [("8500999:0:1", hm(12, 0), 1)]),
         ("rbern2", "TA", "TBERN", "Bern", [("8507000:0:1", hm(13, 0), 1)]),
     ]
+    if n == 1 and extras:
+        # services for the build-date filter: expired, ending the day before 2026-04-01,
+        # and one whose only active date is an added exception (2026-09-01)
+        trips += [
+            ("r1", "TOLD", "TOLDT", "Fribourg, Ancien",
+             [("8509999:0:1", hm(14, 0), 1), ("8587255:0:1", hm(14, 5), 2)]),
+            ("r1", "TEDGE", "TEDGET", "Fribourg, Marge", [("8587255:0:1", hm(15, 0), 1)]),
+            ("r1", "TADD", "TADDT", "Fribourg, Ajout", [("8587255:0:1", hm(16, 0), 1)]),
+        ]
     if n == 1:
         calendar = [("TA", 1, 1, 1, 1, 1, 0, 0, 20251214, 20261212),
                     ("TZ", 1, 1, 1, 1, 1, 1, 1, 20200101, 20300101)]
         dates = [("TA", 20261224, 2), ("TZ", 20260101, 2)]
+        if extras:
+            calendar += [("TOLD", 1, 1, 1, 1, 1, 1, 1, 20250101, 20260301),
+                         ("TEDGE", 1, 1, 1, 1, 1, 1, 1, 20260101, 20260331),
+                         ("TADD", 0, 0, 0, 0, 0, 0, 0, 20260101, 20261231)]
+            dates.append(("TADD", 20260901, 1))
     else:
         calendar = [("TA", 0, 0, 0, 0, 0, 1, 1, 20261213, 20271211)]
         dates = [("TA", 20271225, 1)]
@@ -80,10 +95,11 @@ def _csv(header, rows):
     return ("﻿" + buf.getvalue()).encode("utf-8")
 
 
-def write_fixture_gtfs(path, feed=1):
+def write_fixture_gtfs(path, feed=1, extras=False):
     """Write a small GTFS zip. feed=1 is the current year, feed=2 the next one
-    (same service_id / trip_id strings, different calendars and times)."""
-    trips, calendar, dates = _feed(feed)
+    (same service_id / trip_id strings, different calendars and times).
+    extras=True adds three feed-1 trips with services that expire at different dates."""
+    trips, calendar, dates = _feed(feed, extras)
     trip_rows, st_rows = [], []
     for route, service, tid, headsign, sts in trips:
         trip_rows.append((route, service, tid, headsign, "", 0, "", "", ""))

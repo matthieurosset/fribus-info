@@ -79,7 +79,37 @@ def _resolve_stops(zf):
     return out
 
 
-def build(gtfs_paths, lines_cfg, out_path):
+def today_zurich():
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.datetime.now(ZoneInfo("Europe/Zurich")).date()
+    except Exception:  # no tz database available
+        return datetime.date.today()
+
+
+def _is_live(cal, exceptions, cutoff):
+    """True if the service runs on at least one date >= cutoff (a date)."""
+    c = int(cutoff.strftime("%Y%m%d"))
+    removed = {d for d, t in exceptions if t == 2}
+    if any(t == 1 and d >= c for d, t in exceptions):
+        return True
+    if cal:
+        start, end, days = cal
+        d = max(datetime.datetime.strptime(str(start), "%Y%m%d").date(), cutoff)
+        last = datetime.datetime.strptime(str(end), "%Y%m%d").date()
+        while d <= last:
+            if days >> d.weekday() & 1 and int(d.strftime("%Y%m%d")) not in removed:
+                return True
+            d += datetime.timedelta(days=1)
+    return False
+
+
+def build(gtfs_paths, lines_cfg, out_path, build_date=None):
+    """build_date: 'YYYYMMDD' (default: today in Europe/Zurich). Trips whose service has no
+    active date on or after build_date - 1 day are dropped."""
+    day = (datetime.datetime.strptime(build_date, "%Y%m%d").date() if build_date
+           else today_zurich())
+    cutoff = day - datetime.timedelta(days=1)
     agencies = set(lines_cfg["agencies"])
     line_by_gtfs = {l["gtfs"]: i for i, l in enumerate(lines_cfg["lines"])}
 
@@ -107,49 +137,35 @@ def build(gtfs_paths, lines_cfg, out_path):
                     if r["agency_id"] in agencies and r["route_short_name"] in line_by_gtfs:
                         route_line[r["route_id"]] = line_by_gtfs[r["route_short_name"]]
 
-                trip_map = {}      # gtfs trip_id -> (int id, line index)
-                service_map = {}   # gtfs service_id -> int id
-                batch = []
+                # 1. trips of kept routes (gtfs ids, still unfiltered)
+                cand = []
                 for r in _rows(zf, "trips.txt"):
                     line = route_line.get(r["route_id"])
-                    if line is None:
-                        continue
-                    sid = service_map.get(r["service_id"])
-                    if sid is None:
-                        sid = service_map[r["service_id"]] = next_service
-                        next_service += 1
-                    headsign, hs_commune = split_name(r["trip_headsign"])
-                    trip_map[r["trip_id"]] = (next_trip, line)
-                    batch.append((next_trip, line + 1, sid, headsign, hs_commune))
-                    next_trip += 1
-                db.executemany("INSERT INTO trip VALUES(?,?,?,?,?)", batch)
+                    if line is not None:
+                        cand.append((r["trip_id"], line, r["service_id"], r["trip_headsign"]))
+                wanted = {c[2] for c in cand}
 
-                seen_cal = set()
+                # 2. calendars of those services, then which are still running
+                cal = {}
                 for r in _rows(zf, "calendar.txt"):
-                    sid = service_map.get(r["service_id"])
-                    if sid is None:
-                        continue
-                    seen_cal.add(r["service_id"])
-                    days = sum(1 << i for i, c in enumerate(DAY_COLUMNS) if r[c] == "1")
-                    start, end = int(r["start_date"]), int(r["end_date"])
-                    db.execute("INSERT INTO service VALUES(?,?,?,?)", (sid, start, end, days))
-                    starts.append(start)
-                    ends.append(end)
-
+                    if r["service_id"] in wanted:
+                        days = sum(1 << i for i, c in enumerate(DAY_COLUMNS) if r[c] == "1")
+                        cal[r["service_id"]] = (int(r["start_date"]), int(r["end_date"]), days)
                 exc = {}
                 for r in _rows(zf, "calendar_dates.txt"):
-                    if r["service_id"] in service_map:
+                    if r["service_id"] in wanted:
                         exc.setdefault(r["service_id"], []).append(
                             (int(r["date"]), int(r["exception_type"])))
-                for gid, sid in service_map.items():
-                    dates = exc.get(gid, [])
-                    for date, typ in dates:
-                        db.execute("INSERT INTO service_exception VALUES(?,?,?)", (sid, date, typ))
-                    if gid not in seen_cal and dates:  # service defined by calendar_dates only
-                        lo, hi = min(d for d, _ in dates), max(d for d, _ in dates)
-                        db.execute("INSERT INTO service VALUES(?,?,?,?)", (sid, lo, hi, 0))
-                        starts.append(lo)
-                        ends.append(hi)
+                live = {g for g in wanted if _is_live(cal.get(g), exc.get(g, []), cutoff)}
+
+                # 3. keep trips of live services
+                trip_map = {}      # gtfs trip_id -> (int id, line index)
+                kept = []
+                for gid, line, sgid, headsign in cand:
+                    if sgid in live:
+                        trip_map[gid] = (next_trip, line)
+                        kept.append((next_trip, line, sgid, headsign))
+                        next_trip += 1
 
                 # stop_times: streamed, never held in memory
                 with zf.open("stop_times.txt") as raw:
@@ -158,6 +174,7 @@ def build(gtfs_paths, lines_cfg, out_path):
                     i_trip, i_stop, i_seq = head.index("trip_id"), head.index("stop_id"), head.index("stop_sequence")
                     i_dep, i_arr = head.index("departure_time"), head.index("arrival_time")
                     batch = []
+                    with_times = set()
                     for row in reader:
                         t = trip_map.get(row[i_trip])
                         if t is None:
@@ -168,6 +185,7 @@ def build(gtfs_paths, lines_cfg, out_path):
                             continue
                         didok = stop[0]
                         stops[didok] = stop[1:]
+                        with_times.add(t[0])
                         used_lines.add(t[1])
                         stop_lines.add((didok, t[1]))
                         batch.append((t[0], int(row[i_seq]), didok, parse_time(time)))
@@ -175,6 +193,28 @@ def build(gtfs_paths, lines_cfg, out_path):
                             db.executemany("INSERT INTO stop_time VALUES(?,?,?,?)", batch)
                             batch = []
                     db.executemany("INSERT INTO stop_time VALUES(?,?,?,?)", batch)
+
+                # 5. trips that kept stop_times, with the services they use
+                service_map = {}
+                for tid, line, sgid, headsign in kept:
+                    if tid not in with_times:
+                        continue
+                    sid = service_map.get(sgid)
+                    if sid is None:
+                        sid = service_map[sgid] = next_service
+                        next_service += 1
+                        if sgid in cal:
+                            start, end, days = cal[sgid]
+                        else:  # defined by calendar_dates only
+                            dates = [d for d, _ in exc[sgid]]
+                            start, end, days = min(dates), max(dates), 0
+                        db.execute("INSERT INTO service VALUES(?,?,?,?)", (sid, start, end, days))
+                        starts.append(start)
+                        ends.append(end)
+                        db.executemany("INSERT INTO service_exception VALUES(?,?,?)",
+                                       [(sid, d, t) for d, t in exc.get(sgid, [])])
+                    name, commune = split_name(headsign)
+                    db.execute("INSERT INTO trip VALUES(?,?,?,?,?)", (tid, line + 1, sid, name, commune))
 
         for didok, (full, lat, lon) in stops.items():
             name, commune = split_name(full)
@@ -203,10 +243,11 @@ def main(argv=None):
     p.add_argument("--lines", required=True)
     p.add_argument("--out", required=True)
     p.add_argument("--version-out", required=True)
+    p.add_argument("--build-date", help="YYYYMMDD, default today (Europe/Zurich)")
     args = p.parse_args(argv)
     with open(args.lines, encoding="utf-8") as f:
         cfg = json.load(f)
-    info = build(args.gtfs, cfg, args.out)
+    info = build(args.gtfs, cfg, args.out, args.build_date)
     with open(args.out, "rb") as f:
         info["sha256"] = hashlib.sha256(f.read()).hexdigest()
     with open(args.version_out, "w", encoding="utf-8") as f:

@@ -1,3 +1,4 @@
+# Run: python -I -m unittest discover -s pipeline   (the path form does not work under -I)
 import contextlib
 import hashlib
 import io
@@ -27,7 +28,7 @@ class BuildTest(unittest.TestCase):
         with open(LINES_JSON, encoding="utf-8") as f:
             self.cfg = json.load(f)
         self.out = os.path.join(self.tmp.name, "t.db")
-        self.info = bt.build([self.a, self.b], self.cfg, self.out)
+        self.info = bt.build([self.a, self.b], self.cfg, self.out, build_date="20260401")
         self.db = sqlite3.connect(self.out)
         self.addCleanup(self.db.close)
 
@@ -111,7 +112,7 @@ class BuildTest(unittest.TestCase):
 
     def test_single_feed(self):
         out = os.path.join(self.tmp.name, "one.db")
-        info = bt.build([self.a], self.cfg, out)
+        info = bt.build([self.a], self.cfg, out, build_date="20260401")
         self.assertEqual(info["valid_to"], "20261212")
         self.assertEqual(info["trips"], 4)
 
@@ -120,12 +121,61 @@ class BuildTest(unittest.TestCase):
         ver = os.path.join(self.tmp.name, "version.json")
         with contextlib.redirect_stdout(io.StringIO()):
             bt.main(["--gtfs", self.a, "--gtfs", self.b, "--lines", LINES_JSON,
-                     "--out", out, "--version-out", ver])
+                     "--out", out, "--version-out", ver, "--build-date", "20260401"])
         with open(ver, encoding="utf-8") as f:
             v = json.load(f)
         self.assertEqual(sorted(v), ["bytes", "sha256", "stops", "trips", "valid_from", "valid_to", "version"])
         with open(out, "rb") as f:
             self.assertEqual(v["sha256"], hashlib.sha256(f.read()).hexdigest())
+
+
+class BuildDateFilterTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.a = os.path.join(self.tmp.name, "a.zip")
+        self.b = os.path.join(self.tmp.name, "b.zip")
+        fixture_gtfs.write_fixture_gtfs(self.a, feed=1, extras=True)
+        fixture_gtfs.write_fixture_gtfs(self.b, feed=2)
+        with open(LINES_JSON, encoding="utf-8") as f:
+            self.cfg = json.load(f)
+
+    def run_build(self, build_date):
+        out = os.path.join(self.tmp.name, "t%s.db" % build_date)
+        bt.build([self.a, self.b], self.cfg, out, build_date=build_date)
+        db = sqlite3.connect(out)
+        self.addCleanup(db.close)
+        return db
+
+    def headsigns(self, db):
+        return {r[0] for r in db.execute("SELECT headsign FROM trip")}
+
+    def test_expired_service_dropped_with_its_stop(self):
+        db = self.run_build("20260401")
+        self.assertNotIn("Ancien", self.headsigns(db))
+        self.assertEqual(db.execute("SELECT count(*) FROM stop WHERE id=8509999").fetchone(), (0,))
+        self.assertEqual(db.execute("SELECT count(*) FROM stop_time WHERE stop_id=8509999").fetchone(), (0,))
+        # its service is gone as well
+        self.assertEqual(db.execute("SELECT count(*) FROM service WHERE \"end\"=20260301").fetchone(), (0,))
+
+    def test_only_added_exception_after_build_date_is_kept(self):
+        db = self.run_build("20260401")
+        self.assertIn("Ajout", self.headsigns(db))
+        self.assertEqual(db.execute("SELECT count(*) FROM service_exception WHERE date=20260901 AND type=1").fetchone(), (1,))
+
+    def test_service_active_day_before_build_date_is_kept(self):
+        # TEDGE ends 2026-03-31: still needed for night buses on 2026-04-01 00:30
+        self.assertIn("Marge", self.headsigns(self.run_build("20260401")))
+        self.assertNotIn("Marge", self.headsigns(self.run_build("20260402")))
+
+    def test_valid_range_computed_over_remaining_services(self):
+        db = self.run_build("20260402")
+        meta = dict(db.execute("SELECT key, value FROM meta"))
+        self.assertEqual(meta["valid_from"], "20251214")
+        self.assertEqual(meta["valid_to"], "20271211")
+        db = self.run_build("20261216")  # feed-1 services are over, only feed 2 remains
+        meta = dict(db.execute("SELECT key, value FROM meta"))
+        self.assertEqual(meta["valid_from"], "20261213")
 
 
 if __name__ == "__main__":
