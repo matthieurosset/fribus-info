@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -86,94 +88,85 @@ fun AppScaffold(
     val currentRoute by navController.currentBackStackEntryAsState()
 
     // Black system bars like the reference: the app draws inside the insets over a black base.
-    Box(Modifier.fillMaxSize().background(Color.Black).statusBarsPadding().navigationBarsPadding()) {
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet(
-                windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
-                drawerContainerColor = Color.White,
-                drawerShape = androidx.compose.ui.graphics.RectangleShape,
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Colors.Bar)
-                        .height(56.dp)
-                        .padding(horizontal = 24.dp),
-                    contentAlignment = Alignment.CenterStart,
-                ) {
-                    Text("FriBus Info", color = Color.White, fontSize = 22.sp)
+    Column(Modifier.fillMaxSize().background(Color.Black).statusBarsPadding().navigationBarsPadding()) {
+        val drawerOpen = drawerState.targetValue == DrawerValue.Open
+        androidx.activity.compose.BackHandler(enabled = drawerOpen) { scope.launch { drawerState.close() } }
+        // Custom 56 dp bar (M3 TopAppBar is fixed at 64 dp; the reference is 56). It stays above the
+        // drawer; while the drawer is open it shows a back arrow that closes it and hides the actions.
+        Row(
+            Modifier.fillMaxWidth().height(56.dp).background(Colors.Bar).padding(start = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (drawerOpen) {
+                IconButton(onClick = { scope.launch { drawerState.close() } }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Fermer le menu", tint = Color.White)
                 }
-                Spacer(Modifier.height(8.dp))
-                entries.forEach { e ->
-                    NavigationDrawerItem(
-                        label = { Text(e.label, fontSize = 17.sp) },
-                        icon = { Icon(e.icon, contentDescription = null) },
-                        selected = currentRoute?.destination?.route == e.route,
-                        onClick = {
-                            scope.launch { drawerState.close() }
-                            if (currentRoute?.destination?.route != e.route) {
-                                navController.navigate(e.route) {
-                                    popUpTo(Routes.NEARBY)
-                                    launchSingleTop = true
+            } else if (onBack != null) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour", tint = Color.White)
+                }
+            } else {
+                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                    Icon(Icons.Filled.Menu, contentDescription = "Menu", tint = Color.White)
+                }
+            }
+            if (titleContent != null) {
+                Box(Modifier.weight(1f).padding(start = 8.dp)) { if (!drawerOpen) titleContent() }
+            } else Row(Modifier.weight(1f).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (titleBadge != null) {
+                    Box(Modifier.testTag("title-badge")) { LineBadge(titleBadge, inTitleBar = true) }
+                    Spacer(Modifier.width(2.5.dp))
+                }
+                Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (!drawerOpen) CompositionLocalProvider(LocalContentColor provides Color.White) { actions() }
+        }
+        ModalNavigationDrawer(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            drawerState = drawerState,
+            scrimColor = Color.Black.copy(alpha = 0.6f),
+            drawerContent = {
+                ModalDrawerSheet(
+                    modifier = Modifier.width(240.dp),
+                    windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+                    drawerContainerColor = Color.White,
+                    drawerShape = androidx.compose.ui.graphics.RectangleShape,
+                ) {
+                    entries.forEach { e ->
+                        val selected = currentRoute?.destination?.route == e.route
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .background(if (selected) Color(0xFFE5E5E5) else Color.White)
+                                .clickable {
+                                    scope.launch { drawerState.close() }
+                                    if (!selected) {
+                                        navController.navigate(e.route) {
+                                            popUpTo(Routes.NEARBY)
+                                            launchSingleTop = true
+                                        }
+                                    }
                                 }
-                            }
-                        },
-                        shape = androidx.compose.ui.graphics.RectangleShape,
-                        colors = NavigationDrawerItemDefaults.colors(
-                            selectedContainerColor = Color(0xFFE5E5E5),
-                            unselectedContainerColor = Color.White,
-                            selectedIconColor = Colors.Secondary,
-                            unselectedIconColor = Colors.Secondary,
-                            selectedTextColor = Color(0xFF424242),
-                            unselectedTextColor = Color(0xFF424242),
-                        ),
+                                .padding(start = 33.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(e.icon, contentDescription = null, tint = Colors.Secondary, modifier = Modifier.size(26.dp))
+                            Spacer(Modifier.width(27.dp))
+                            Text(e.label, fontSize = 17.sp, color = Color(0xFF424242))
+                        }
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        "Données : opentransportdata.swiss · transport.opendata.ch",
+                        color = Colors.Secondary,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
                     )
                 }
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "Données : opentransportdata.swiss · transport.opendata.ch",
-                    color = Colors.Secondary,
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                )
-            }
-        },
-    ) {
-        Scaffold(
-            topBar = {
-                // Custom 56 dp bar (M3 TopAppBar is fixed at 64 dp; the reference is 56).
-                Row(
-                    Modifier.fillMaxWidth().height(56.dp).background(Colors.Bar),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (onBack != null) {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour", tint = Color.White)
-                        }
-                    } else {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Filled.Menu, contentDescription = "Menu", tint = Color.White)
-                        }
-                    }
-                    if (titleContent != null) {
-                        Box(Modifier.weight(1f).padding(start = 8.dp)) { titleContent() }
-                    } else Row(Modifier.weight(1f).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (titleBadge != null) {
-                            Box(Modifier.testTag("title-badge")) { LineBadge(titleBadge) }
-                            Spacer(Modifier.width(6.dp))
-                        }
-                        Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    CompositionLocalProvider(LocalContentColor provides Color.White) { actions() }
-                }
             },
-            containerColor = Color.White,
-            contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
-        ) { padding ->
-            Box(Modifier.fillMaxSize().padding(padding)) { content() }
+        ) {
+            Box(Modifier.fillMaxSize().background(Color.White)) { content() }
         }
-    }
     }
 }

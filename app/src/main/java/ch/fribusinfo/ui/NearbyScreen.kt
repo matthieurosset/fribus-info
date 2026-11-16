@@ -6,6 +6,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -50,6 +53,10 @@ fun shouldAskPermissionOnOpen(enabled: Boolean, granted: Boolean, alreadyAsked: 
 /** « Position indisponible » only once the permission outcome is known and no location came. */
 fun isPositionUnavailable(permissionResolved: Boolean, emitted: Boolean, hasLocation: Boolean) =
     permissionResolved && emitted && !hasLocation
+
+/** The list jumps back to the top when a new location yields a different list of stops (not on a
+ *  refresh that returns the same stops in the same order). */
+fun shouldScrollToTop(previousIds: List<Long>?, newIds: List<Long>) = previousIds != newIds
 
 /** Home screen. [repository] is null while the database opens (blank, no spinner). */
 @Composable
@@ -104,18 +111,26 @@ fun NearbyScreen(
         else withContext(Dispatchers.IO) { repository.nearby(lat, lon) }
     }
 
+    val listState = rememberLazyListState()
+    var shownIds by remember { mutableStateOf<List<Long>?>(null) }
+    LaunchedEffect(stops) {
+        val ids = stops?.map { it.stop.id } ?: return@LaunchedEffect
+        if (shouldScrollToTop(shownIds, ids)) listState.scrollToItem(0)
+        shownIds = ids
+    }
+
     AppScaffold(
         title = "À proximité",
         navController = navController,
         actions = {
             IconButton(onClick = { navController.navigate(Routes.SEARCH) }) {
-                Icon(Icons.Filled.Search, contentDescription = "Recherche")
+                Icon(Icons.Filled.Search, contentDescription = "Recherche", modifier = Modifier.size(28.dp))
             }
             IconButton(onClick = {
                 // Explicit request: ask again if the permission is missing, else just re-collect.
                 if (requestPermissionOnOpen && !granted()) launcher.launch(perms) else attempt++
             }) {
-                Icon(Icons.Filled.MyLocation, contentDescription = "Ma position")
+                Icon(Icons.Filled.MyLocation, contentDescription = "Ma position", modifier = Modifier.size(25.dp))
             }
         },
     ) {
@@ -124,7 +139,7 @@ fun NearbyScreen(
             isPositionUnavailable(resolved, located, location != null) -> Message("Position indisponible", "unavailable")
             list == null -> Unit
             list.isEmpty() -> Message("Aucun arrêt à proximité", "empty")
-            else -> LazyColumn {
+            else -> LazyColumn(state = listState) {
                 items(list, key = { it.stop.id }) { s ->
                     StopRow(s) { navController.navigate(Routes.stop(s.stop.id)) }
                 }

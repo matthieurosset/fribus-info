@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,7 +24,6 @@ import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -66,6 +66,34 @@ import java.time.Duration
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+
+private val MenuItemPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 16.dp)
+
+/** Overflow menu anchored at the right edge of the window, level with its anchor's top. */
+@Composable
+private fun OverflowMenu(expanded: Boolean, onDismiss: () -> Unit, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    if (!expanded) return
+    val position = remember {
+        object : androidx.compose.ui.window.PopupPositionProvider {
+            override fun calculatePosition(
+                anchorBounds: androidx.compose.ui.unit.IntRect,
+                windowSize: androidx.compose.ui.unit.IntSize,
+                layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+                popupContentSize: androidx.compose.ui.unit.IntSize,
+            ) = androidx.compose.ui.unit.IntOffset(windowSize.width - popupContentSize.width, anchorBounds.top)
+        }
+    }
+    androidx.compose.ui.window.Popup(
+        popupPositionProvider = position,
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.PopupProperties(focusable = true),
+    ) {
+        androidx.compose.material3.Surface(
+            shape = RoundedCornerShape(3.dp), color = Color.White, shadowElevation = 6.dp,
+            modifier = Modifier.width(247.dp),
+        ) { Column(content = content) }
+    }
+}
 
 private val clock = DateTimeFormatter.ofPattern("HH:mm")
 private val zurich = ZoneId.of("Europe/Zurich")
@@ -115,10 +143,10 @@ fun DepartureRow(dep: Departure, now: ZonedDateTime, absolute: Boolean, delay: D
             LargeBadge(dep)
             Column(Modifier.weight(1f).padding(start = 8.dp, end = 8.dp)) {
                 Text(
-                    dep.headsign, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                    dep.headsign, fontSize = 17.sp, fontWeight = FontWeight.Bold,
                     color = Color.Black, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
-                Text(dep.headsignCommune, fontSize = 16.sp, color = Colors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(dep.headsignCommune, fontSize = 13.5.sp, color = Colors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             delayBadge(delay)?.let { label ->
                 Box(
@@ -237,26 +265,30 @@ fun DeparturesScreen(
         onBack = { navController.popBackStack() },
         actions = {
             IconButton(onClick = { navController.navigate(Routes.SEARCH) { launchSingleTop = true } }) {
-                Icon(Icons.Filled.Search, contentDescription = "Recherche")
+                Icon(Icons.Filled.Search, contentDescription = "Recherche", modifier = Modifier.size(28.dp))
             }
             IconButton(onClick = {
                 if (!navController.popBackStack(Routes.NEARBY, false)) navController.navigate(Routes.NEARBY)
             }) {
-                Icon(Icons.Filled.MyLocation, contentDescription = "Ma position")
+                Icon(Icons.Filled.MyLocation, contentDescription = "Ma position", modifier = Modifier.size(25.dp))
             }
             Box {
                 IconButton(onClick = { menuOpen = true }) {
                     Icon(Icons.Filled.MoreVert, contentDescription = "Plus")
                 }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, containerColor = Color.White) {
+                // Like the reference: 247 dp wide, right edge flush with the screen, top level with the
+                // anchor button (4 dp below the bar's top, so the menu overlaps the bar), no vertical padding.
+                OverflowMenu(expanded = menuOpen, onDismiss = { menuOpen = false }) {
                     DropdownMenuItem(
                         text = { Text(if (isFav) "Retirer des favoris" else "Ajouter aux favoris", fontSize = 17.sp) },
-                        leadingIcon = { Icon(Icons.Outlined.StarBorder, null, tint = Colors.Secondary) },
+                        contentPadding = MenuItemPadding,
+                        leadingIcon = { Box(Modifier.width(32.dp)) { Icon(Icons.Outlined.StarBorder, null, tint = Colors.Secondary, modifier = Modifier.size(26.dp)) } },
                         onClick = { favorites.toggle(stopId); menuOpen = false },
                     )
                     DropdownMenuItem(
                         text = { Text(if (absolute) "Afficher les minutes" else "Afficher l'heure", fontSize = 17.sp) },
-                        leadingIcon = { Icon(Icons.Outlined.Schedule, null, tint = Colors.Secondary) },
+                        contentPadding = MenuItemPadding,
+                        leadingIcon = { Box(Modifier.width(32.dp)) { Icon(Icons.Outlined.Schedule, null, tint = Colors.Secondary, modifier = Modifier.size(26.dp)) } },
                         onClick = { favorites.setAbsoluteTime(!absolute); menuOpen = false },
                     )
                 }

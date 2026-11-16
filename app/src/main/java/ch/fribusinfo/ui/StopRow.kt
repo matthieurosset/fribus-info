@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,24 +42,26 @@ fun badgeSlots(count: Int): Pair<List<Int>, Boolean> =
 fun StopRow(item: StopWithLines, onClick: () -> Unit) {
     Column(Modifier.testTag("stop-row").clickable(onClick = onClick)) {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 65.dp).padding(start = 8.dp, end = 16.dp),
+            Modifier.fillMaxWidth().heightIn(min = if (item.distanceMeters != null) 64.5.dp else 56.5.dp)
+                .padding(start = if (item.distanceMeters != null) 10.dp else 0.dp, end = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val d = item.distanceMeters
             if (d != null) {
-                Column(Modifier.width(50.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Filled.Place, contentDescription = null, tint = Colors.Secondary, modifier = Modifier.size(32.dp))
-                    Text(formatDistance(d), color = Colors.Secondary, fontSize = 13.sp, maxLines = 1)
+                Column(Modifier.width(50.dp).padding(top = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Filled.Place, contentDescription = null, tint = Colors.Secondary, modifier = Modifier.size(26.dp).graphicsLayer(scaleX = 0.87f))
+                    Text(formatDistance(d), color = Colors.Secondary, fontSize = 12.sp, maxLines = 1)
                 }
             } else {
-                Box(Modifier.width(8.dp))
+                Box(Modifier.width(16.dp))
             }
-            Column(Modifier.weight(1f).padding(start = 4.dp, end = 8.dp)) {
+            Column(Modifier.weight(1f).padding(start = if (d != null) 2.dp else 0.dp, end = 8.dp)) {
                 Text(
-                    item.stop.name, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.offset(y = (-2.5).dp),
+                    text = item.stop.name, fontSize = 17.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold,
                     color = Color.Black, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
-                Text(item.stop.commune, fontSize = 16.sp, color = Colors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(item.stop.commune, fontSize = 13.5.sp, lineHeight = 15.5.sp, color = Colors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Badges(item.lines)
         }

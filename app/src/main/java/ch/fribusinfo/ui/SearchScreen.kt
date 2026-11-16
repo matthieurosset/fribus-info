@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -90,7 +91,7 @@ fun SearchScreen(navController: NavController, repository: TimetableRepository?)
         navController = navController,
         onBack = { navController.popBackStack() },
         titleContent = {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(end = 39.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Search, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(12.dp))
                 Box(Modifier.weight(1f)) {

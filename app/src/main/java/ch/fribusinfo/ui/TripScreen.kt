@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -167,10 +168,10 @@ private fun TripRow(s: TripStop, minutes: String?, isChosen: Boolean, isTerminus
         Box(Modifier.width(36.dp))
         Column(Modifier.weight(1f).padding(end = 8.dp)) {
             Text(
-                s.stop.stop.name, fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                s.stop.stop.name, modifier = Modifier.offset(y = (-2.5).dp), fontSize = 17.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold,
                 color = fg, maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
-            Text(s.stop.stop.commune, fontSize = 16.sp, color = sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(s.stop.stop.commune, fontSize = 13.5.sp, lineHeight = 15.5.sp, color = sub, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Badges(s.stop.lines)
     }
