@@ -24,7 +24,14 @@ jobs:
       - name: Keystore
         env:
           FRIBUS_KEYSTORE_B64: ${{ secrets.FRIBUS_KEYSTORE_B64 }}
-        run: echo "$FRIBUS_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+        run: |
+          if [ -z "$FRIBUS_KEYSTORE_B64" ]; then
+            echo "::error::Secret FRIBUS_KEYSTORE_B64 absent ou vide"; exit 1
+          fi
+          echo "$FRIBUS_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          if [ ! -s "$RUNNER_TEMP/release.keystore" ]; then
+            echo "::error::Keystore decode vide (FRIBUS_KEYSTORE_B64 invalide)"; exit 1
+          fi
       - name: Build et tests
         env:
           FRIBUS_KEYSTORE: ${{ runner.temp }}/release.keystore
