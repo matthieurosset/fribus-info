@@ -4,14 +4,13 @@ on:
   schedule:
     - cron: "0 4 * * 1"
   workflow_dispatch:
-  push:
-    branches: [v1]
-    paths:
-      - "pipeline/**"
-      - ".github/workflows/timetable.yml"
 
 permissions:
   contents: write
+
+concurrency:
+  group: timetable
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -35,12 +34,17 @@ jobs:
           base=https://data.opentransportdata.swiss/de/dataset
           curl -fsSL -o "$RUNNER_TEMP/gtfs/current.zip" "$base/timetable-$year-gtfs2020/permalink"
           args="--gtfs $RUNNER_TEMP/gtfs/current.zip"
-          # Le jeu de l'année suivante n'existe pas toujours : son absence n'est pas une erreur.
-          if curl -fsSL -o "$RUNNER_TEMP/gtfs/next.zip" "$base/timetable-$next-gtfs2020/permalink"; then
+          # Le jeu de l'année suivante n'existe pas toujours : seul un HTTP 404 signifie « absent ».
+          # Toute autre erreur (réseau, 5xx, curl) fait échouer le job.
+          code=$(curl -sSL -w '%{http_code}' -o "$RUNNER_TEMP/gtfs/next.zip" "$base/timetable-$next-gtfs2020/permalink")
+          if [ "$code" = "200" ]; then
             args="$args --gtfs $RUNNER_TEMP/gtfs/next.zip"
-          else
-            echo "Pas de jeu GTFS $next, on continue avec $year seul."
+          elif [ "$code" = "404" ]; then
+            echo "Pas de jeu GTFS $next (404), on continue avec $year seul."
             rm -f "$RUNNER_TEMP/gtfs/next.zip"
+          else
+            echo "Réponse inattendue ($code) pour le jeu GTFS $next" >&2
+            exit 1
           fi
           echo "GTFS_ARGS=$args" >> "$GITHUB_ENV"
 
@@ -53,6 +57,25 @@ jobs:
             --lines pipeline/lines.json --out timetable.db --version-out version.json
           cat version.json
           ls -l timetable.db
+
+      - name: Refuser une base plus ancienne que celle publiée
+        run: |
+          set -eu
+          url="https://github.com/${{ github.repository }}/releases/download/timetable/version.json"
+          code=$(curl -sSL -w '%{http_code}' -o "$RUNNER_TEMP/published.json" "$url")
+          if [ "$code" = "404" ]; then
+            echo "Rien de publié pour l'instant : on publie."
+            exit 0
+          fi
+          [ "$code" = "200" ] || { echo "Lecture de la version publiée impossible ($code)" >&2; exit 1; }
+          python -I - "$RUNNER_TEMP/published.json" version.json <<'PY'
+          import json, sys
+          old = json.load(open(sys.argv[1], encoding="utf-8"))["valid_to"]
+          new = json.load(open(sys.argv[2], encoding="utf-8"))["valid_to"]
+          print("valid_to publiée", old, "nouvelle", new)
+          if new < old:
+              sys.exit("Refus : la nouvelle base finit avant la base publiée")
+          PY
 
       - name: Publier la release
         run: |
