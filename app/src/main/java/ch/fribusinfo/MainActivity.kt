@@ -84,7 +84,7 @@ private fun App() {
                 entry.arguments!!.getLong("tripId"),
                 java.time.LocalDate.of(d / 10000, d / 100 % 100, d % 100),
                 entry.arguments!!.getInt("fromSeq"),
-                entry.arguments!!.getInt("delay").takeIf { it > 0 }?.let { java.time.Duration.ofSeconds(it.toLong()) },
+                entry.arguments!!.getInt("delay").takeIf { it != 0 }?.let { java.time.Duration.ofSeconds(it.toLong()) },
                 nav,
                 repo,
                 entry.arguments!!.getString("version").orEmpty(),

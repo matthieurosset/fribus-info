@@ -7,9 +7,12 @@ import androidx.compose.ui.graphics.Color
 
 object Colors {
     val Bar = Color(0xFFA80231)
-    val MinutesButton = Color(0xFF018BC1)
-    val MinutesButtonPassed = Color(0xFF79C1DD)
-    val DelayBadge = Color(0xFFFFD100)
+    val MinutesTop = Color(0xFF0085B9)
+    val MinutesBottom = Color(0xFF008DC5)
+    val PassedTop = Color(0xFFD4D4D4)
+    val PassedBottom = Color(0xFFDDDDDD)
+    val Gray = Color(0xFF666666)
+    val Disabled = Color(0xFF8F8F8F)
     val Divider = Color(0xFFE0E0E0)
     val Secondary = Color(0xFF858585)
     val PearlLine = Color(0xFF999696)

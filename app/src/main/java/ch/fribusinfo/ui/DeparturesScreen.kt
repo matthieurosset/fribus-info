@@ -17,6 +17,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -65,7 +79,6 @@ import kotlinx.coroutines.withContext
 import java.time.Duration
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 
 private val MenuItemPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 16.dp)
 
@@ -95,83 +108,65 @@ private fun OverflowMenu(expanded: Boolean, onDismiss: () -> Unit, content: @Com
     }
 }
 
-private val clock = DateTimeFormatter.ofPattern("HH:mm")
 private val zurich = ZoneId.of("Europe/Zurich")
 private val LOOK_BACK: Duration = Duration.ofMinutes(60)
 private const val RAW_LIMIT = 150
 
-/** The delay actually applied and shown: whole minutes (floored); under one minute, early or
- *  absent counts as on time, so the button always equals scheduled + the label. */
-fun effectiveDelay(delay: Duration?): Duration =
-    if (delay == null || delay.seconds < 60) Duration.ZERO else Duration.ofMinutes(delay.seconds / 60)
+/** Tests switch the blinking of the « now » button off (an infinite animation never lets Compose idle). */
+val LocalBlinkEnabled = androidx.compose.runtime.staticCompositionLocalOf { true }
 
-/** Real passing time of a departure. */
-fun realTime(dep: Departure, delay: Duration?): ZonedDateTime = dep.scheduled.plus(effectiveDelay(delay))
-
-/** How long a departed bus stays listed (greyed). */
-private val PASSED_GRACE: Duration = Duration.ofMinutes(1)
-
-/** True when the bus has just left: real time before [now] (kept for [PASSED_GRACE]). */
-fun isPassed(dep: Departure, delay: Duration?, now: ZonedDateTime): Boolean =
-    realTime(dep, delay).isBefore(now)
-
-/** Departures to list: real time (scheduled + delay) less than 1 min before [now] (just left rows are
- *  shown greyed, see [isPassed]), ordered by real time then
- *  scheduled time, cut to [limit] after sorting. [local] may start before [now] (look-back) so
- *  that a late bus stays listed. Without delays this is exactly scheduled >= now. */
-fun visibleDepartures(local: List<Departure>, delays: Map<Long, Duration>, now: ZonedDateTime, limit: Int = 30): List<Departure> =
-    local.filter { realTime(it, delays[it.tripId]).isAfter(now.minus(PASSED_GRACE)) }
-        .sortedWith(compareBy({ realTime(it, delays[it.tripId]) }, { it.scheduled }))
-        .take(limit)
-
-/** « 7' » (floor of whole minutes, never negative) or « HH:mm » (24 h, Zurich). */
-fun departureLabel(dep: Departure, now: ZonedDateTime, absolute: Boolean, delay: Duration?): String {
-    val at = realTime(dep, delay)
-    return if (absolute) at.withZoneSameInstant(zurich).format(clock)
-    else "${Duration.between(now, at).seconds.coerceAtLeast(0) / 60}'"
-}
-
-/** « +3' » for a delay of at least one minute, otherwise null (early or on time: no label). */
-fun delayBadge(delay: Duration?): String? =
-    effectiveDelay(delay).let { if (it.isZero) null else "+${it.toMinutes()}'" }
-
-/** yyyymmdd service date as used by the trip route. */
-fun serviceDateInt(dep: Departure): Int =
-    dep.serviceDate.year * 10000 + dep.serviceDate.monthValue * 100 + dep.serviceDate.dayOfMonth
+private val Yellow = Color(0xFFFFFF00)
+private val BlueGradient = Brush.verticalGradient(listOf(Colors.MinutesTop, Colors.MinutesBottom))
+private val GreyGradient = Brush.verticalGradient(listOf(Colors.PassedTop, Colors.PassedBottom))
 
 @Composable
-fun DepartureRow(dep: Departure, now: ZonedDateTime, absolute: Boolean, delay: Duration?, passed: Boolean = false, onClick: () -> Unit) {
+fun DepartureRow(dep: Departure, now: ZonedDateTime, absolute: Boolean, delay: Duration?, onClick: () -> Unit) {
+    val state = departureState(dep, now, delay)
+    val passed = state == DepartureState.PASSED
+    val textColor = if (passed || !isDelayed(delay)) Color.White else Yellow
     Column(
         Modifier.testTag("departure-row").clickable(onClick = onClick).semantics(mergeDescendants = true) {},
     ) {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 57.dp).padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            Modifier.fillMaxWidth().heightIn(min = 57.dp).padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             LargeBadge(dep)
             Column(Modifier.weight(1f).padding(start = 8.dp, end = 8.dp)) {
                 Text(
                     dep.headsign, fontSize = 17.sp, fontWeight = FontWeight.Bold,
-                    color = Color.Black, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = if (passed) Colors.Disabled else Color.Black, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 Text(dep.headsignCommune, fontSize = 13.5.sp, color = Colors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            delayBadge(delay)?.let { label ->
+            val pill = if (absolute) delayPill(delay) else null
+            if (pill != null) {
                 Box(
-                    Modifier.padding(end = 6.dp).height(20.dp).clip(RoundedCornerShape(3.dp))
-                        .background(Colors.DelayBadge).padding(horizontal = 5.dp).testTag("delay-badge"),
+                    Modifier.padding(end = 4.dp).defaultMinSize(minWidth = 26.dp).height(27.dp)
+                        .clip(RoundedCornerShape(4.dp)).background(if (passed) GreyGradient else BlueGradient)
+                        .padding(horizontal = 3.dp).testTag("delay-badge"),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(label, color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text(
+                        pill, color = textColor,
+                        fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+                    )
                 }
             }
-            Box(
-                Modifier.width(67.dp).height(27.dp).clip(RoundedCornerShape(3.dp)).background(if (passed) Colors.MinutesButtonPassed else Colors.MinutesButton),
-                contentAlignment = Alignment.Center,
-            ) {
+            val alpha = if (state == DepartureState.NOW && LocalBlinkEnabled.current) {
+                rememberInfiniteTransition(label = "blink").animateFloat(
+                    1f, 0.5f,
+                    infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Reverse),
+                    label = "alpha",
+                ).value
+            } else 1f
+            Box(Modifier.width(50.dp).height(27.dp).clip(RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center) {
+                Box(Modifier.matchParentSize().alpha(alpha).background(if (passed) GreyGradient else BlueGradient).testTag("minutes-bg"))
                 Text(
                     departureLabel(dep, now, absolute, delay),
-                    color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+                    color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+                    modifier = Modifier.defaultMinSize(minWidth = 30.dp).padding(horizontal = 1.dp),
+                    textAlign = TextAlign.Center,
                 )
             }
         }
@@ -179,30 +174,32 @@ fun DepartureRow(dep: Departure, now: ZonedDateTime, absolute: Boolean, delay: D
     }
 }
 
-/** Large square badge (about 35 dp) of the departures list. */
+/** Square badge of the departures list: 35 x 35 dp; labels of 3+ characters are set at 16 sp and
+ *  squeezed to 70 % of their width, like the reference app. */
 @Composable
 private fun LargeBadge(dep: Departure) {
     val line = dep.line
+    val long = line.label.length > 2
     Box(
         Modifier
-            .defaultMinSize(minWidth = 35.dp, minHeight = 35.dp)
+            .size(35.dp)
             .background(Color(0xFF000000.toInt() or line.bg))
-            .let { if (line.bordered) it.border(1.dp, Color.Black) else it }
-            .padding(horizontal = 3.dp),
+            .let { if (line.bordered) it.border(1.dp, Color.Black) else it },
         contentAlignment = Alignment.Center,
     ) {
         Text(
             line.label,
             color = Color(0xFF000000.toInt() or line.fg),
-            fontSize = 22.sp,
+            fontSize = if (long) 16.sp else 22.sp,
             fontWeight = if (line.bordered) FontWeight.Normal else FontWeight.Bold,
-            maxLines = 1,
+            maxLines = 1, softWrap = false,
+            modifier = if (long) Modifier.graphicsLayer(scaleX = 0.7f) else Modifier,
         )
     }
 }
 
 /** Departures of one stop. [repository] is null while the database opens. [now] is injectable
- *  for tests; the list is recomputed every [tickMillis] (departed rows disappear). */
+ *  for tests. The list is recomputed on every exact minute ([tickMillis] overrides this in tests). */
 @Composable
 fun DeparturesScreen(
     navController: NavController,
@@ -210,7 +207,7 @@ fun DeparturesScreen(
     favorites: Favorites,
     stopId: Long,
     now: () -> ZonedDateTime = { ZonedDateTime.now(zurich) },
-    tickMillis: Long = 30_000,
+    tickMillis: Long? = null,
     realtime: RealtimeCache? = null,
 ) {
     val absolute by favorites.absoluteTime.collectAsState()
@@ -239,7 +236,7 @@ fun DeparturesScreen(
                 } catch (e: Exception) {
                     Log.w("DeparturesScreen", "departures refresh failed", e)
                 }
-                delay(tickMillis)
+                delay(tickMillis ?: millisUntilNextMinute(now()))
             }
         }
     }
@@ -288,13 +285,13 @@ fun DeparturesScreen(
                 // anchor button (4 dp below the bar's top, so the menu overlaps the bar), no vertical padding.
                 OverflowMenu(expanded = menuOpen, onDismiss = { menuOpen = false }) {
                     DropdownMenuItem(
-                        text = { Text(if (isFav) "Retirer des favoris" else "Ajouter aux favoris", fontSize = 17.sp) },
+                        text = { Text(if (isFav) "Supprimer des favoris" else "Ajouter aux favoris", fontSize = 17.sp) },
                         contentPadding = MenuItemPadding,
                         leadingIcon = { Box(Modifier.width(32.dp)) { Icon(Icons.Outlined.StarBorder, null, tint = Colors.Secondary, modifier = Modifier.size(26.dp)) } },
                         onClick = { favorites.toggle(stopId); menuOpen = false },
                     )
                     DropdownMenuItem(
-                        text = { Text(if (absolute) "Afficher les minutes" else "Afficher l'heure", fontSize = 17.sp) },
+                        text = { Text(if (absolute) "Heure de départ en minutes" else "Heure de départ absolue", fontSize = 17.sp) },
                         contentPadding = MenuItemPadding,
                         leadingIcon = { Box(Modifier.width(32.dp)) { Icon(Icons.Outlined.Schedule, null, tint = Colors.Secondary, modifier = Modifier.size(26.dp)) } },
                         onClick = { favorites.setAbsoluteTime(!absolute); menuOpen = false },
@@ -306,21 +303,36 @@ fun DeparturesScreen(
         val list = remember(departures, delays, current) {
             departures?.let { visibleDepartures(it, delays, current) }
         }
+        val listState = rememberLazyListState()
+        var userScrolled by remember { mutableStateOf(false) }
+        val scrollWatcher = remember {
+            object : NestedScrollConnection {
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                    if (source == NestedScrollSource.UserInput) userScrolled = true
+                    return Offset.Zero
+                }
+            }
+        }
+        // After each refresh the first non-passed row goes to the top, unless the user has scrolled.
+        LaunchedEffect(list) {
+            if (list != null && list.isNotEmpty() && !userScrolled) {
+                listState.scrollToItem(firstUpcomingIndex(list, delays, current))
+            }
+        }
         when {
             list == null -> Unit
             list.isEmpty() -> Box(Modifier.fillMaxSize().testTag("empty"), contentAlignment = Alignment.Center) {
                 Text(
-                    "Aucun départ dans les prochaines heures",
-                    color = Colors.Secondary, fontSize = 18.sp, textAlign = TextAlign.Center,
+                    "Pas de départ ces 2 prochaines heures",
+                    color = Colors.Disabled, fontSize = 18.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                     modifier = Modifier.padding(24.dp),
                 )
             }
-            else -> LazyColumn {
+            else -> LazyColumn(Modifier.nestedScroll(scrollWatcher), state = listState) {
                 items(list, key = { "${it.tripId}/${serviceDateInt(it)}/${it.seq}" }) { d ->
                     val delay = delays[d.tripId]
-                    DepartureRow(d, current, absolute, delay, passed = isPassed(d, delay, current), onClick = {
-                        val secs = effectiveDelay(delay).seconds.toInt()
-                        navController.navigate(Routes.trip(d.tripId, serviceDateInt(d), d.seq, secs, repository?.version.orEmpty()))
+                    DepartureRow(d, current, absolute, delay, onClick = {
+                        navController.navigate(Routes.trip(d.tripId, serviceDateInt(d), d.seq, delaySeconds(delay).toInt(), repository?.version.orEmpty()))
                     })
                 }
             }
