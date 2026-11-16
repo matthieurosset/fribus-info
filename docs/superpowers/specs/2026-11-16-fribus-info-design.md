@@ -63,13 +63,18 @@ Barre du haut bordeaux comme l'ancienne app, nom « FriBus Info » à la place d
 Langue de l'interface : français.
 
 **6.1 Arrêts à proximité** (écran d'accueil, capture `1-arrets-proches.png`)
-Liste triée par distance : icône de repère + distance (« 350 m ») à gauche, nom de l'arrêt en
-gras, commune en dessous, badges colorés des lignes à droite (deux rangées max, puis « … »).
-Bouton loupe (recherche) et bouton de relocalisation dans la barre.
-Noms GTFS du type `Fribourg, Tilleul/Cathédrale` : partie après la virgule = nom, avant = commune.
-*Choix de Claude* : sans position (permission refusée, GPS coupé) ou sans arrêt dans le rayon
-(hors agglo), l'écran affiche un court texte centré, comme l'ancienne app (« Position
-indisponible » / « Aucun arrêt à proximité »). La loupe et le menu restent utilisables.
+Arrêts situés dans un carré de ±500 m autour de la position (comme l'ancienne app : coins à
+≈ 707 m, pas de filtre circulaire, pas de limite de nombre, pas de recherche élargie), triés par
+distance. Liste recalculée seulement si la position a bougé d'au moins 100 m, ou sur le bouton de
+relocalisation. Icône de repère + distance à gauche, toujours arrondie au multiple de 25 m
+supérieur (`(d / 25 + 1) * 25` : 0-24 m → « 25 m », 25 m → « 50 m »), nom de l'arrêt en gras,
+commune en dessous (#888888), badges colorés des lignes à droite (deux rangées de 4 max, puis
+« … »). Séparateur de liste : 1 px #AAAAAA. Bouton loupe (recherche) et bouton de relocalisation
+dans la barre. Noms GTFS du type `Fribourg, Tilleul/Cathédrale` : partie après la virgule = nom,
+avant = commune.
+Textes (repris de l'ancienne app) : liste vide « Aucun résultat » (18 sp gras #8F8F8F, centré).
+*Choix de Claude* : sans position (permission refusée, GPS coupé) l'écran affiche « Position
+indisponible » (l'ancien texte citait « Wemlin »). La loupe et le menu restent utilisables.
 
 **6.2 Départs d'un arrêt** (`2-departs-arret.png`, `3-menu-arret.png`)
 Une ligne par départ : badge de ligne 35 × 35 dp (libellé de 3 caractères ou plus : 16 sp, comprimé à
@@ -98,10 +103,16 @@ Tant que le terminus n'est pas visible, une copie est épinglée en bas de l'éc
 s'ouvre sur l'arrêt choisi, le précédent dépassant en haut.
 
 **6.4 Recherche** (`5-recherche.png`)
-Champ dans la barre, résultats au fur et à mesure, même présentation que 6.1 sans distance.
+Champ dans la barre (indice « Rechercher station »), résultats au fur et à mesure (anti-rebond
+300 ms), même présentation que 6.1 sans distance. La requête est découpée en mots (virgules =
+espaces) ; chaque mot doit figurer, sans tenir compte des accents ni de la casse, dans
+« commune nom ». Résultats triés par nom (puis commune), sans limite ni priorité de préfixe ;
+champ vide = aucun résultat affiché. Aucun résultat : « Aucun résultat ».
 
 **6.5 Menu latéral** (`6-menu-lateral.png`, simplifié)
-Trois entrées seulement : *À proximité*, *Rechercher*, *Favoris*. Favoris = liste comme 6.1.
+Trois entrées seulement : *À proximité*, *Rechercher*, *Favoris*. Texte #666666, entrée courante
+sur fond #E6E6E6. Favoris = liste comme 6.1 sans distance, le dernier favori ajouté en tête ;
+liste vide : « La liste des favoris est vide. Définissez un ou plusieurs favori(s). ».
 
 ## 7. Temps réel
 
