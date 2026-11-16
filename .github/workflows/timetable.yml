@@ -2,7 +2,8 @@ name: Horaires
 
 on:
   schedule:
-    - cron: "0 4 * * 1"
+    # La source (opentransportdata.swiss) publie le mercredi et le samedi matin.
+    - cron: "0 10 * * 3,6"
   workflow_dispatch:
 
 permissions:
@@ -80,5 +81,5 @@ jobs:
       - name: Publier la release
         run: |
           gh release create timetable --title "Horaires" \
-            --notes "Base d'horaires reconstruite chaque semaine." || true
+            --notes "Base d'horaires reconstruite le mercredi et le samedi." || true
           gh release upload timetable timetable.db version.json --clobber

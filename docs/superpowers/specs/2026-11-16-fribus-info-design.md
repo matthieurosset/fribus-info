@@ -133,7 +133,7 @@ liste vide : « La liste des favoris est vide. Définissez un ou plusieurs favor
 
 ## 8. Données d'horaires
 
-**Pipeline (GitHub Actions, hebdomadaire + manuel)**
+**Pipeline (GitHub Actions, mercredi et samedi à 10:00 UTC + manuel, au rythme des publications de la source)**
 1. Télécharger le GTFS suisse (`https://data.opentransportdata.swiss/de/dataset/timetable-2026-gtfs2020/permalink`,
    ~290 Mo zippé, `stop_times.txt` ~3,7 Go décompressé — traiter en flux). En décembre, prendre
    aussi le jeu de l'année suivante (`timetable-2027-gtfs2020`) pour couvrir le changement d'horaire.
