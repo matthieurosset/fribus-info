@@ -41,7 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import ch.fribusinfo.data.StopWithLines
-import ch.fribusinfo.data.shouldReloadNearby
+import ch.fribusinfo.data.nearbyReloadNeeded
 import ch.fribusinfo.data.TimetableRepository
 import ch.fribusinfo.location.LocationSource
 import kotlinx.coroutines.Dispatchers
@@ -86,6 +86,7 @@ fun NearbyScreen(
     val perms = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         resolved = true
+        location = null; located = false   // drop the old fix first: the reload must use a fresh one
         attempt++
     }
     LaunchedEffect(Unit) {
@@ -124,7 +125,7 @@ fun NearbyScreen(
         // No fix (yet): keep the previous list instead of blanking it while waiting.
         if (lat == null || lon == null) return@LaunchedEffect
         val forced = handledAttempt != attempt
-        if (!forced && !shouldReloadNearby(anchor?.first, anchor?.second, lat, lon)) return@LaunchedEffect
+        if (!nearbyReloadNeeded(forced, anchor?.first, anchor?.second, lat, lon)) return@LaunchedEffect
         try {
             stops = withContext(Dispatchers.IO) { repository.nearby(lat, lon) }
             anchor = lat to lon
@@ -153,7 +154,7 @@ fun NearbyScreen(
             }
             IconButton(onClick = {
                 // Explicit request: ask again if the permission is missing, else just re-collect.
-                if (requestPermissionOnOpen && !granted()) launcher.launch(perms) else attempt++
+                if (requestPermissionOnOpen && !granted()) launcher.launch(perms) else { location = null; located = false; attempt++ }
             }) {
                 Icon(Icons.Filled.MyLocation, contentDescription = "Ma position", modifier = Modifier.size(25.dp))
             }

@@ -40,3 +40,7 @@ fun isInNearbySquare(
 fun shouldReloadNearby(
     fromLat: Double?, fromLon: Double?, lat: Double, lon: Double, min: Int = MIN_MOVE_TO_RELOAD_METERS,
 ): Boolean = fromLat == null || fromLon == null || haversineMeters(fromLat, fromLon, lat, lon) >= min
+
+/** A forced reload (target button) ignores the 100 m rule; otherwise [shouldReloadNearby]. */
+fun nearbyReloadNeeded(forced: Boolean, fromLat: Double?, fromLon: Double?, lat: Double, lon: Double): Boolean =
+    forced || shouldReloadNearby(fromLat, fromLon, lat, lon)

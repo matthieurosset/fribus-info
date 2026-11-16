@@ -23,6 +23,13 @@ class NearbyLogicTest {
         assertTrue(isInNearbySquare(lat, lon, lat + 499 * mLat, lon))
     }
 
+    @Test fun buttonForcesReloadEvenWithinHundredMeters() {
+        // fix held at (lat, lon); button pressed; fresh fix 40 m away arrives: reload at the new spot
+        assertFalse(nearbyReloadNeeded(false, lat, lon, lat + 40 * mLat, lon))
+        assertTrue(nearbyReloadNeeded(true, lat, lon, lat + 40 * mLat, lon))
+        assertTrue(nearbyReloadNeeded(true, null, null, lat, lon))
+    }
+
     @Test fun reloadsOnlyAfterHundredMeters() {
         assertTrue(shouldReloadNearby(null, null, lat, lon))
         assertFalse(shouldReloadNearby(lat, lon, lat + 99 * mLat, lon))
