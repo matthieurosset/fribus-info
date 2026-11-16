@@ -144,7 +144,7 @@ class DeparturesScreenTest {
         waitRows()
         val before = repo.departures(stopId, noon)
         val firstText = rowText(0)
-        now.value = before[0].scheduled.plusSeconds(1)
+        now.value = before[0].scheduled.plusSeconds(61)
         rule.waitUntil(5000) {
             val rows = rule.onAllNodesWithTag("departure-row").fetchSemanticsNodes()
             rows.isNotEmpty() && rowText(0) != firstText

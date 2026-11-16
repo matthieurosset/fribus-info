@@ -65,14 +65,49 @@ class DepartureLabelTest {
         assertEquals(listOf(3L, 4L, 2L, 1L), out.map { it.tripId })
     }
 
+    @Test fun defaultLimitIsThirty() {
+        val out = visibleDepartures((1L..40L).map { d(it, it * 10) }, emptyMap(), now)
+        assertEquals(30, out.size)
+    }
+
     @Test fun limitAppliedAfterResort() {
         val first = d(1, 60)  // delayed far
         val out = visibleDepartures(listOf(first, d(2, 120), d(3, 180)), mapOf(1L to Duration.ofMinutes(30)), now, limit = 2)
         assertEquals(listOf(2L, 3L), out.map { it.tripId })
     }
 
-    @Test fun withoutDelaysSameAsScheduledFromNow() {
-        val out = visibleDepartures(listOf(d(1, -1), d(2, 0), d(3, 10)), emptyMap(), now)
-        assertEquals(listOf(2L, 3L), out.map { it.tripId })
+    @Test fun withoutDelaysKeepsJustDepartedThenUpcoming() {
+        val out = visibleDepartures(listOf(d(3, 10), d(1, -1), d(2, 0), d(4, -61)), emptyMap(), now)
+        assertEquals(listOf(1L, 2L, 3L), out.map { it.tripId })
+    }
+
+    @Test fun busLeftThirtySecondsAgoIsKeptAndPassed() {
+        val gone = d(1, -30)
+        val out = visibleDepartures(listOf(gone, d(2, 120)), emptyMap(), now)
+        assertEquals(listOf(1L, 2L), out.map { it.tripId })
+        assertEquals(true, isPassed(gone, null, now))
+        assertEquals(false, isPassed(d(2, 120), null, now))
+    }
+
+    @Test fun busLeftNinetySecondsAgoIsDropped() {
+        assertEquals(emptyList<Long>(), visibleDepartures(listOf(d(1, -90)), emptyMap(), now).map { it.tripId })
+    }
+
+    @Test fun lateBusWithFutureRealTimeIsNotPassed() {
+        val late = d(1, -120)
+        val delay = Duration.ofMinutes(5)
+        assertEquals(listOf(1L), visibleDepartures(listOf(late), mapOf(1L to delay), now).map { it.tripId })
+        assertEquals(false, isPassed(late, delay, now))
+    }
+
+    @Test fun passedUsesRealTimeNotScheduled() {
+        val b = d(1, -210) // scheduled 3.5 min ago, +3 -> left 30 s ago
+        assertEquals(true, isPassed(b, Duration.ofMinutes(3), now))
+        assertEquals(listOf(1L), visibleDepartures(listOf(b), mapOf(1L to Duration.ofMinutes(3)), now).map { it.tripId })
+    }
+
+    @Test fun passedRowsOrderedByRealTime() {
+        val out = visibleDepartures(listOf(d(1, 60), d(2, -20), d(3, -50)), emptyMap(), now)
+        assertEquals(listOf(3L, 2L, 1L), out.map { it.tripId })
     }
 }

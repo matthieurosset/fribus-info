@@ -108,11 +108,19 @@ fun effectiveDelay(delay: Duration?): Duration =
 /** Real passing time of a departure. */
 fun realTime(dep: Departure, delay: Duration?): ZonedDateTime = dep.scheduled.plus(effectiveDelay(delay))
 
-/** Departures to list: real time (scheduled + delay) not before [now], ordered by real time then
+/** How long a departed bus stays listed (greyed). */
+private val PASSED_GRACE: Duration = Duration.ofMinutes(1)
+
+/** True when the bus has just left: real time before [now] (kept for [PASSED_GRACE]). */
+fun isPassed(dep: Departure, delay: Duration?, now: ZonedDateTime): Boolean =
+    realTime(dep, delay).isBefore(now)
+
+/** Departures to list: real time (scheduled + delay) less than 1 min before [now] (just left rows are
+ *  shown greyed, see [isPassed]), ordered by real time then
  *  scheduled time, cut to [limit] after sorting. [local] may start before [now] (look-back) so
  *  that a late bus stays listed. Without delays this is exactly scheduled >= now. */
-fun visibleDepartures(local: List<Departure>, delays: Map<Long, Duration>, now: ZonedDateTime, limit: Int = 60): List<Departure> =
-    local.filter { !realTime(it, delays[it.tripId]).isBefore(now) }
+fun visibleDepartures(local: List<Departure>, delays: Map<Long, Duration>, now: ZonedDateTime, limit: Int = 30): List<Departure> =
+    local.filter { realTime(it, delays[it.tripId]).isAfter(now.minus(PASSED_GRACE)) }
         .sortedWith(compareBy({ realTime(it, delays[it.tripId]) }, { it.scheduled }))
         .take(limit)
 
@@ -132,7 +140,7 @@ fun serviceDateInt(dep: Departure): Int =
     dep.serviceDate.year * 10000 + dep.serviceDate.monthValue * 100 + dep.serviceDate.dayOfMonth
 
 @Composable
-fun DepartureRow(dep: Departure, now: ZonedDateTime, absolute: Boolean, delay: Duration?, onClick: () -> Unit) {
+fun DepartureRow(dep: Departure, now: ZonedDateTime, absolute: Boolean, delay: Duration?, passed: Boolean = false, onClick: () -> Unit) {
     Column(
         Modifier.testTag("departure-row").clickable(onClick = onClick).semantics(mergeDescendants = true) {},
     ) {
@@ -158,7 +166,7 @@ fun DepartureRow(dep: Departure, now: ZonedDateTime, absolute: Boolean, delay: D
                 }
             }
             Box(
-                Modifier.width(67.dp).height(27.dp).clip(RoundedCornerShape(3.dp)).background(Colors.MinutesButton),
+                Modifier.width(67.dp).height(27.dp).clip(RoundedCornerShape(3.dp)).background(if (passed) Colors.MinutesButtonPassed else Colors.MinutesButton),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -224,7 +232,7 @@ fun DeparturesScreen(
             while (true) {
                 val t = now()
                 try {
-                    departures = withContext(Dispatchers.IO) { repository.departures(stopId, t.minus(LOOK_BACK), RAW_LIMIT, Duration.ofHours(6).plus(LOOK_BACK)) }
+                    departures = withContext(Dispatchers.IO) { repository.departures(stopId, t.minus(LOOK_BACK), RAW_LIMIT, Duration.ofMinutes(120).plus(LOOK_BACK)) }
                     current = t
                 } catch (e: CancellationException) {
                     throw e
@@ -310,10 +318,10 @@ fun DeparturesScreen(
             else -> LazyColumn {
                 items(list, key = { "${it.tripId}/${serviceDateInt(it)}/${it.seq}" }) { d ->
                     val delay = delays[d.tripId]
-                    DepartureRow(d, current, absolute, delay) {
+                    DepartureRow(d, current, absolute, delay, passed = isPassed(d, delay, current), onClick = {
                         val secs = effectiveDelay(delay).seconds.toInt()
                         navController.navigate(Routes.trip(d.tripId, serviceDateInt(d), d.seq, secs, repository?.version.orEmpty()))
-                    }
+                    })
                 }
             }
         }
