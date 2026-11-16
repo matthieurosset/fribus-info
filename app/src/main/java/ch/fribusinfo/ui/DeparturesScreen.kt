@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,9 +56,11 @@ import ch.fribusinfo.data.Departure
 import ch.fribusinfo.data.Favorites
 import ch.fribusinfo.data.StopWithLines
 import ch.fribusinfo.data.TimetableRepository
+import ch.fribusinfo.realtime.RealtimeCache
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 import java.time.Duration
 import java.time.ZoneId
@@ -69,10 +72,14 @@ private val zurich = ZoneId.of("Europe/Zurich")
 
 /** « 7' » (floor of whole minutes, never negative) or « HH:mm » (24 h, Zurich). */
 fun departureLabel(dep: Departure, now: ZonedDateTime, absolute: Boolean, delay: Duration?): String {
-    val at = dep.scheduled.plus(delay ?: Duration.ZERO)
+    val at = dep.scheduled.plus(delay?.takeIf { !it.isNegative } ?: Duration.ZERO)
     return if (absolute) at.withZoneSameInstant(zurich).format(clock)
     else "${Duration.between(now, at).seconds.coerceAtLeast(0) / 60}'"
 }
+
+/** « +3' » for a delay of at least one minute, otherwise null (early or on time: no label). */
+fun delayBadge(delay: Duration?): String? =
+    if (delay == null || delay.seconds < 60) null else "+${delay.seconds / 60}'"
 
 /** yyyymmdd service date as used by the trip route. */
 fun serviceDateInt(dep: Departure): Int =
@@ -94,6 +101,15 @@ fun DepartureRow(dep: Departure, now: ZonedDateTime, absolute: Boolean, delay: D
                     color = Color.Black, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 Text(dep.headsignCommune, fontSize = 16.sp, color = Colors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            delayBadge(delay)?.let { label ->
+                Box(
+                    Modifier.padding(end = 6.dp).height(20.dp).clip(RoundedCornerShape(3.dp))
+                        .background(Colors.DelayBadge).padding(horizontal = 5.dp).testTag("delay-badge"),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(label, color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                }
             }
             Box(
                 Modifier.width(67.dp).height(27.dp).clip(RoundedCornerShape(3.dp)).background(Colors.MinutesButton),
@@ -141,12 +157,14 @@ fun DeparturesScreen(
     stopId: Long,
     now: () -> ZonedDateTime = { ZonedDateTime.now(zurich) },
     tickMillis: Long = 30_000,
+    realtime: RealtimeCache? = null,
 ) {
     val absolute by favorites.absoluteTime.collectAsState()
     val favIds by favorites.ids.collectAsState()
     var stop by remember { mutableStateOf<StopWithLines?>(null) }
     var current by remember { mutableStateOf(now()) }
     var departures by remember { mutableStateOf<List<Departure>?>(null) }
+    var delays by remember { mutableStateOf<Map<Long, Duration>>(emptyMap()) }
 
     LaunchedEffect(repository, stopId) {
         stop = if (repository == null) null else withContext(Dispatchers.IO) { repository.stop(stopId) }
@@ -167,6 +185,27 @@ fun DeparturesScreen(
                     Log.w("DeparturesScreen", "departures refresh failed", e)
                 }
                 delay(tickMillis)
+            }
+        }
+    }
+
+    // Realtime only for this stop and only while the screen is visible; any failure = no delays.
+    LaunchedEffect(realtime, stopId, lifecycle) {
+        if (realtime == null) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            snapshotFlow { departures }.collectLatest { list ->
+                if (list.isNullOrEmpty()) {
+                    delays = emptyMap()
+                    return@collectLatest
+                }
+                try {
+                    realtime.delays(stopId, list).collect { delays = it }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w("DeparturesScreen", "realtime failed", e)
+                    delays = emptyMap()
+                }
             }
         }
     }
@@ -217,8 +256,10 @@ fun DeparturesScreen(
             }
             else -> LazyColumn {
                 items(list, key = { "${it.tripId}/${serviceDateInt(it)}/${it.seq}" }) { d ->
-                    DepartureRow(d, current, absolute, null) {
-                        navController.navigate(Routes.trip(d.tripId, serviceDateInt(d), d.seq))
+                    val delay = delays[d.tripId]
+                    DepartureRow(d, current, absolute, delay) {
+                        val secs = delay?.seconds?.toInt()?.coerceAtLeast(0) ?: 0
+                        navController.navigate(Routes.trip(d.tripId, serviceDateInt(d), d.seq, secs))
                     }
                 }
             }

@@ -50,6 +50,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.Duration
 import java.time.LocalDate
+import java.time.ZonedDateTime
 
 /** Horizontal centre of the pearl chain, shared with the pixel tests. */
 internal val PEARL_CX = 60.dp
@@ -58,20 +59,30 @@ private val RingRed = Color(0xFFA80231)
 private val DotRed = Color(0xFF8B1010)
 private val RingGrey = Color(0xFF858585)
 
+/** Real time of every stop: before the chosen one the scheduled time, from it on scheduled +
+ *  [delay] (early buses count as on time). */
+fun tripRealTimes(stops: List<TripStop>, fromSeq: Int, delay: Duration?): List<ZonedDateTime> {
+    val d = delay?.takeIf { !it.isNegative } ?: Duration.ZERO
+    return stops.map { if (it.seq >= fromSeq) it.scheduled.plus(d) else it.scheduled }
+}
+
 /** One label per stop: null before the chosen stop (no minutes), « 0' » at it, then whole
- *  minutes (floored) since its scheduled time. All null if [fromSeq] is not in the trip. */
-fun tripMinutes(stops: List<TripStop>, fromSeq: Int): List<String?> {
-    val from = stops.firstOrNull { it.seq == fromSeq } ?: return stops.map { null }
-    return stops.map {
-        if (it.seq < fromSeq) null
-        else "${Duration.between(from.scheduled, it.scheduled).seconds.coerceAtLeast(0) / 60}'"
+ *  minutes (floored) counted from the chosen stop's real time. All null if [fromSeq] is not
+ *  in the trip. */
+fun tripMinutes(stops: List<TripStop>, fromSeq: Int, delay: Duration? = null): List<String?> {
+    val idx = stops.indexOfFirst { it.seq == fromSeq }
+    if (idx < 0) return stops.map { null }
+    val real = tripRealTimes(stops, fromSeq, delay)
+    return stops.mapIndexed { i, s ->
+        if (s.seq < fromSeq) null
+        else "${Duration.between(real[idx], real[i]).seconds.coerceAtLeast(0) / 60}'"
     }
 }
 
 private class TripData(val header: TripHeader?, val stops: List<TripStop>)
 
-/** All stops of one trip. [delay] (realtime offset of the chosen departure, wired in a later
- *  task) shifts every stop equally, so minutes counted from the chosen stop do not change. */
+/** All stops of one trip. [delay] (realtime offset of the chosen departure) shifts the stops
+ *  from the chosen one on, so minutes counted from the chosen stop do not change. */
 @Composable
 fun TripScreen(
     tripId: Long,
@@ -110,7 +121,7 @@ fun TripScreen(
         },
     ) {
         val stops = data?.stops ?: return@AppScaffold
-        val labels = remember(stops, fromSeq) { tripMinutes(stops, fromSeq) }
+        val labels = remember(stops, fromSeq, delay) { tripMinutes(stops, fromSeq, delay) }
         val chosen = stops.indexOfFirst { it.seq == fromSeq }
         val state = rememberLazyListState()
         val peek = with(LocalDensity.current) { 55.dp.roundToPx() }

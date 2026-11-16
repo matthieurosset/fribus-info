@@ -64,6 +64,18 @@ class DeparturesScreenTest {
         rule.onNodeWithText("12:07").assertIsDisplayed()
     }
 
+    @Test fun lateRowShowsYellowBadgeAndShiftedMinutes() {
+        rule.setContent { FriBusTheme { DepartureRow(dep(7), noon, false, java.time.Duration.ofMinutes(3)) {} } }
+        rule.onNodeWithText("+3'", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("10'", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test fun onTimeOrEarlyRowHasNoBadge() {
+        rule.setContent { FriBusTheme { DepartureRow(dep(7), noon, false, java.time.Duration.ofMinutes(-2)) {} } }
+        assertTrue(rule.onAllNodesWithTag("delay-badge", useUnmergedTree = true).fetchSemanticsNodes().isEmpty())
+        rule.onNodeWithText("7'").assertIsDisplayed()
+    }
+
     @Test fun rowTapReportsClick() {
         var clicked = false
         rule.setContent { FriBusTheme { DepartureRow(dep(3), noon, false, null) { clicked = true } } }

@@ -21,4 +21,14 @@ class DepartureLabelTest {
     @Test fun absoluteAfterNoon24h() = assertEquals("15:07", departureLabel(dep(3 * 3600 + 7 * 60), now, true, null))
     @Test fun delayShiftsTime() = assertEquals("12:09", departureLabel(dep(7 * 60), now, true, Duration.ofMinutes(2)))
     @Test fun serviceDateIsYyyymmdd() = assertEquals(20261117, serviceDateInt(dep(0)))
+
+    @Test fun earlyBusIsTreatedAsOnTime() = assertEquals("12:07", departureLabel(dep(7 * 60), now, true, Duration.ofMinutes(-2)))
+    @Test fun delayAddsToMinutes() = assertEquals("9'", departureLabel(dep(7 * 60), now, false, Duration.ofMinutes(2)))
+    @Test fun badgeShownFromOneMinute() {
+        assertEquals("+3'", delayBadge(Duration.ofMinutes(3)))
+        assertEquals("+1'", delayBadge(Duration.ofSeconds(60)))
+        assertEquals(null, delayBadge(Duration.ofSeconds(59)))
+        assertEquals(null, delayBadge(Duration.ofMinutes(-2)))
+        assertEquals(null, delayBadge(null))
+    }
 }

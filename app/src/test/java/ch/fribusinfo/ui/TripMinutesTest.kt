@@ -22,4 +22,15 @@ class TripMinutesTest {
 
     @Test fun unknownSeqShowsNoMinutes() =
         assertEquals(List(5) { null }, tripMinutes(trip, 99))
+
+    @Test fun delayShiftsStopsAfterChosenAndMinutesStayCountedFromRealTime() =
+        assertEquals(listOf(null, null, "0'", "0'", "5'"), tripMinutes(trip, 3, java.time.Duration.ofMinutes(4)))
+
+    @Test fun realTimesShiftOnlyFromChosenStop() {
+        val real = tripRealTimes(trip, 3, java.time.Duration.ofMinutes(4))
+        assertEquals(listOf(t0, t0.plusSeconds(120), t0.plusSeconds(540), t0.plusSeconds(599), t0.plusSeconds(840)), real)
+    }
+
+    @Test fun negativeDelayIsTreatedAsZero() =
+        assertEquals(trip.map { it.scheduled }, tripRealTimes(trip, 1, java.time.Duration.ofMinutes(-3)))
 }

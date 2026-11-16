@@ -65,7 +65,7 @@ private fun App() {
         ) { entry ->
             val app = LocalContext.current.applicationContext as FriBusApp
             val repo by app.timetable.repository.collectAsState()
-            DeparturesScreen(nav, repo, app.favorites, entry.arguments!!.getLong("stopId"))
+            DeparturesScreen(nav, repo, app.favorites, entry.arguments!!.getLong("stopId"), realtime = app.realtime)
         }
         composable(
             Routes.TRIP,
@@ -73,6 +73,7 @@ private fun App() {
                 navArgument("tripId") { type = NavType.LongType },
                 navArgument("serviceDate") { type = NavType.IntType },
                 navArgument("fromSeq") { type = NavType.IntType },
+                navArgument("delay") { type = NavType.IntType; defaultValue = 0 },
             ),
         ) { entry ->
             val app = LocalContext.current.applicationContext as FriBusApp
@@ -82,7 +83,7 @@ private fun App() {
                 entry.arguments!!.getLong("tripId"),
                 java.time.LocalDate.of(d / 10000, d / 100 % 100, d % 100),
                 entry.arguments!!.getInt("fromSeq"),
-                null,
+                entry.arguments!!.getInt("delay").takeIf { it > 0 }?.let { java.time.Duration.ofSeconds(it.toLong()) },
                 nav,
                 repo,
             )
