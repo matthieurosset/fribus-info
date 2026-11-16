@@ -51,6 +51,9 @@ import kotlinx.coroutines.withContext
 import java.time.Duration
 import java.time.LocalDate
 
+/** Horizontal centre of the pearl chain, shared with the pixel tests. */
+internal val PEARL_CX = 60.dp
+
 private val RingRed = Color(0xFFA80231)
 private val DotRed = Color(0xFF8B1010)
 private val RingGrey = Color(0xFF858585)
@@ -135,14 +138,9 @@ private fun TripRow(s: TripStop, minutes: String?, isChosen: Boolean, isTerminus
     }
     val fg = if (isChosen) Color.White else Color.Black
     val sub = if (isChosen) Color.White else Colors.Secondary
-    val tag = when {
-        isChosen -> "trip-row-chosen"
-        isTerminus -> "trip-row-terminus"
-        else -> "trip-row"
-    }
     Row(
         Modifier
-            .testTag(tag)
+            .testTag("trip-row-${s.seq}")
             .fillMaxWidth()
             .heightIn(min = 76.dp)
             .background(bg)
@@ -170,7 +168,7 @@ private fun TripRow(s: TripStop, minutes: String?, isChosen: Boolean, isTerminus
 /** Pearl chain: the vertical line (full row height, so it also runs above the first and below
  *  the last stop) and the circle centred at x = 60 dp. */
 private fun DrawScope.drawPearl(isChosen: Boolean, isTerminus: Boolean) {
-    val cx = 60.dp.toPx()
+    val cx = PEARL_CX.toPx()
     val cy = size.height / 2
     val lw = 11.dp.toPx()
     drawRect(Colors.PearlLine, Offset(cx - lw / 2, 0f), Size(lw, size.height))
