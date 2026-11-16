@@ -69,17 +69,35 @@ import java.time.format.DateTimeFormatter
 
 private val clock = DateTimeFormatter.ofPattern("HH:mm")
 private val zurich = ZoneId.of("Europe/Zurich")
+private val LOOK_BACK: Duration = Duration.ofMinutes(60)
+private const val RAW_LIMIT = 150
+
+/** The delay actually applied and shown: whole minutes (floored); under one minute, early or
+ *  absent counts as on time, so the button always equals scheduled + the label. */
+fun effectiveDelay(delay: Duration?): Duration =
+    if (delay == null || delay.seconds < 60) Duration.ZERO else Duration.ofMinutes(delay.seconds / 60)
+
+/** Real passing time of a departure. */
+fun realTime(dep: Departure, delay: Duration?): ZonedDateTime = dep.scheduled.plus(effectiveDelay(delay))
+
+/** Departures to list: real time (scheduled + delay) not before [now], ordered by real time then
+ *  scheduled time, cut to [limit] after sorting. [local] may start before [now] (look-back) so
+ *  that a late bus stays listed. Without delays this is exactly scheduled >= now. */
+fun visibleDepartures(local: List<Departure>, delays: Map<Long, Duration>, now: ZonedDateTime, limit: Int = 60): List<Departure> =
+    local.filter { !realTime(it, delays[it.tripId]).isBefore(now) }
+        .sortedWith(compareBy({ realTime(it, delays[it.tripId]) }, { it.scheduled }))
+        .take(limit)
 
 /** « 7' » (floor of whole minutes, never negative) or « HH:mm » (24 h, Zurich). */
 fun departureLabel(dep: Departure, now: ZonedDateTime, absolute: Boolean, delay: Duration?): String {
-    val at = dep.scheduled.plus(delay?.takeIf { !it.isNegative } ?: Duration.ZERO)
+    val at = realTime(dep, delay)
     return if (absolute) at.withZoneSameInstant(zurich).format(clock)
     else "${Duration.between(now, at).seconds.coerceAtLeast(0) / 60}'"
 }
 
 /** « +3' » for a delay of at least one minute, otherwise null (early or on time: no label). */
 fun delayBadge(delay: Duration?): String? =
-    if (delay == null || delay.seconds < 60) null else "+${delay.seconds / 60}'"
+    effectiveDelay(delay).let { if (it.isZero) null else "+${it.toMinutes()}'" }
 
 /** yyyymmdd service date as used by the trip route. */
 fun serviceDateInt(dep: Departure): Int =
@@ -163,6 +181,7 @@ fun DeparturesScreen(
     val favIds by favorites.ids.collectAsState()
     var stop by remember { mutableStateOf<StopWithLines?>(null) }
     var current by remember { mutableStateOf(now()) }
+    // Raw list starts LOOK_BACK before now so a late bus (scheduled in the past) is still known.
     var departures by remember { mutableStateOf<List<Departure>?>(null) }
     var delays by remember { mutableStateOf<Map<Long, Duration>>(emptyMap()) }
 
@@ -177,7 +196,7 @@ fun DeparturesScreen(
             while (true) {
                 val t = now()
                 try {
-                    departures = withContext(Dispatchers.IO) { repository.departures(stopId, t) }
+                    departures = withContext(Dispatchers.IO) { repository.departures(stopId, t.minus(LOOK_BACK), RAW_LIMIT, Duration.ofHours(6).plus(LOOK_BACK)) }
                     current = t
                 } catch (e: CancellationException) {
                     throw e
@@ -244,7 +263,9 @@ fun DeparturesScreen(
             }
         },
     ) {
-        val list = departures
+        val list = remember(departures, delays, current) {
+            departures?.let { visibleDepartures(it, delays, current) }
+        }
         when {
             list == null -> Unit
             list.isEmpty() -> Box(Modifier.fillMaxSize().testTag("empty"), contentAlignment = Alignment.Center) {
@@ -258,7 +279,7 @@ fun DeparturesScreen(
                 items(list, key = { "${it.tripId}/${serviceDateInt(it)}/${it.seq}" }) { d ->
                     val delay = delays[d.tripId]
                     DepartureRow(d, current, absolute, delay) {
-                        val secs = delay?.seconds?.toInt()?.coerceAtLeast(0) ?: 0
+                        val secs = effectiveDelay(delay).seconds.toInt()
                         navController.navigate(Routes.trip(d.tripId, serviceDateInt(d), d.seq, secs))
                     }
                 }

@@ -13,7 +13,11 @@ import java.time.Instant
 
 /** Per-stop cache (30 s) in front of [StationboardClient]. After HTTP 429 nothing is requested
  *  for 5 minutes; every failure yields an empty list, i.e. the theoretical timetable. */
-class RealtimeCache(private val client: StationboardClient, private val clock: () -> Instant = Instant::now) {
+class RealtimeCache(
+    private val client: StationboardClient,
+    private val clock: () -> Instant = Instant::now,
+    private val log: (String, Throwable?) -> Unit = { m, e -> Log.w("RealtimeCache", m, e) },
+) {
     private class Entry(val at: Instant, val list: List<RtDeparture>)
 
     private val mutex = Mutex()
@@ -28,7 +32,7 @@ class RealtimeCache(private val client: StationboardClient, private val clock: (
         val list = result.getOrElse { e ->
             if (e is CancellationException) throw e
             if (e is StationboardClient.TooManyRequests) backoffUntil = now.plus(BACKOFF)
-            Log.w("RealtimeCache", "stationboard $stopId failed: $e")
+            log("stationboard $stopId failed", e)
             emptyList()
         }
         entries[stopId] = Entry(now, list)

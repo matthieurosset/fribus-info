@@ -27,7 +27,7 @@ class RealtimeCacheTest {
     private val ok = { Result.success(listOf(RtDeparture("2", "B, A", t, t.plusMinutes(2)))) }
 
     @Test fun secondCallWithin30sDoesNotHitClient() = runBlocking {
-        val c = Fake(ok); val cache = RealtimeCache(c) { now }
+        val c = Fake(ok); val cache = RealtimeCache(c, { now }, { _, _ -> })
         assertEquals(Duration.ofMinutes(2), cache.delays(1, local).first()[7])
         now = now.plusSeconds(29)
         assertEquals(Duration.ofMinutes(2), cache.delays(1, local).first()[7])
@@ -38,14 +38,14 @@ class RealtimeCacheTest {
     }
 
     @Test fun stopsAreCachedSeparately() = runBlocking {
-        val c = Fake(ok); val cache = RealtimeCache(c) { now }
+        val c = Fake(ok); val cache = RealtimeCache(c, { now }, { _, _ -> })
         cache.delays(1, local).first(); cache.delays(2, local).first()
         assertEquals(2, c.calls)
     }
 
     @Test fun tooManyRequestsBacksOffFiveMinutesWithEmptyMap() = runBlocking {
         val c = Fake { Result.failure(StationboardClient.TooManyRequests()) }
-        val cache = RealtimeCache(c) { now }
+        val cache = RealtimeCache(c, { now }, { _, _ -> })
         assertEquals(none, cache.delays(1, local).first())
         now = now.plusSeconds(299)
         assertEquals(none, cache.delays(1, local).first())
@@ -59,13 +59,13 @@ class RealtimeCacheTest {
 
     @Test fun otherErrorGivesEmptyMapWithoutThrowing() = runBlocking {
         val c = Fake { Result.failure(java.io.IOException("offline")) }
-        val cache = RealtimeCache(c) { now }
+        val cache = RealtimeCache(c, { now }, { _, _ -> })
         assertEquals(none, cache.delays(1, local).first())
     }
 
     @Test fun recoversAfterOtherError() = runBlocking {
         val c = Fake { Result.failure(java.io.IOException("offline")) }
-        val cache = RealtimeCache(c) { now }
+        val cache = RealtimeCache(c, { now }, { _, _ -> })
         cache.delays(1, local).first()
         c.result = ok; now = now.plusSeconds(31)
         assertEquals(Duration.ofMinutes(2), cache.delays(1, local).first()[7])

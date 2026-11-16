@@ -107,4 +107,23 @@ class RealtimeMatcherTest {
         val r = RealtimeMatcher.match(listOf(local(1, "FUN", "Basse-Ville", "Fribourg", at(12, 0))), emptyList())
         assertEquals(none, r)
     }
+
+    @Test fun trainWithSameNumberAndMinuteNeverMatchesABus() {
+        val r = RealtimeMatcher.match(
+            listOf(local(1, "1", "Gérine", "Marly", at(12, 0))),
+            listOf(RtDeparture("1", "Romont FR", at(12, 0), at(12, 9), "S")),
+        )
+        assertEquals(none, r)
+    }
+
+    @Test fun busCategoryStillMatches() {
+        val r = RealtimeMatcher.match(
+            listOf(local(1, "1", "Gérine", "Marly", at(12, 0))),
+            listOf(
+                RtDeparture("1", "Romont FR", at(12, 0), at(12, 9), "S"),
+                RtDeparture("1", "Marly, Gérine", at(12, 0), at(12, 2), "B"),
+            ),
+        )
+        assertEquals(mapOf(1L to Duration.ofMinutes(2)), r)
+    }
 }

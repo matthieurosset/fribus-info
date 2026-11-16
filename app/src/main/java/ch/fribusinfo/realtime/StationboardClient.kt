@@ -14,7 +14,7 @@ import java.time.format.DateTimeFormatter
 
 /** One departure of the public transport.opendata.ch stationboard. [expected] is null when the
  *  API has no prognosis for it. */
-data class RtDeparture(val line: String, val to: String, val scheduled: ZonedDateTime, val expected: ZonedDateTime?)
+data class RtDeparture(val line: String, val to: String, val scheduled: ZonedDateTime, val expected: ZonedDateTime?, val category: String = "")
 
 private val zurich = ZoneId.of("Europe/Zurich")
 private val apiTime = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ")
@@ -37,7 +37,7 @@ fun parseStationboard(json: String): List<RtDeparture> {
         val stop = e.optJSONObject("stop") ?: continue
         val scheduled = stop.optTime("departure") ?: continue
         val expected = stop.optJSONObject("prognosis")?.optTime("departure")
-        out += RtDeparture(e.optString("number", ""), e.optString("to", ""), scheduled, expected)
+        out += RtDeparture(e.optString("number", ""), e.optString("to", ""), scheduled, expected, e.optString("category", ""))
     }
     return out
 }

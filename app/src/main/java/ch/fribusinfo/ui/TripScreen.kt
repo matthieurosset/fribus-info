@@ -62,7 +62,7 @@ private val RingGrey = Color(0xFF858585)
 /** Real time of every stop: before the chosen one the scheduled time, from it on scheduled +
  *  [delay] (early buses count as on time). */
 fun tripRealTimes(stops: List<TripStop>, fromSeq: Int, delay: Duration?): List<ZonedDateTime> {
-    val d = delay?.takeIf { !it.isNegative } ?: Duration.ZERO
+    val d = effectiveDelay(delay)
     return stops.map { if (it.seq >= fromSeq) it.scheduled.plus(d) else it.scheduled }
 }
 
