@@ -1,7 +1,7 @@
-# Recette : comparaison avec l'ancienne app (TPF Info 2.9.10) — 2026-11-16
+# Recette : comparaison avec l'ancienne app (TPF Info 2.9.10) — 2026-11-16 (refaite sur la v1.0.1)
 
 Méthode : AVD `mission_geo_phone` (1080×2400), position simulée 46.8032 / 7.1597, arrêt Tilleul-Cathédrale (ancienne app) / Tilleul/Cathédrale (FriBus Info).
-Ancienne app capturée avec l'horloge en juin 2021 (seule date acceptée par son horaire embarqué) ; FriBus Info capturée à la date réelle, réseau actif ; les captures `*-fribus.png` viennent du build postérieur au commit 02292fb (rendu aligné sur l'ancienne app), pas de l'APK v1.0.0 d'origine.
+Ancienne app capturée avec l'horloge en juin 2021 (seule date acceptée par son horaire embarqué) ; FriBus Info capturée à la date réelle, réseau actif ; les captures `*-fribus.png` ont été recapturées le 2026-11-16 sur l'APK **release v1.0.1** (`FriBusInfo-v1.0.1.apk`, versionCode 2, téléchargé depuis la release GitHub, installé par-dessus la v1.0.0), position 46.8032 / 7.1597.
 Les écarts sont étiquetés « voulu » avec la référence à la spec (`docs/superpowers/specs/2026-11-16-fribus-info-design.md`) ou à une décision du contrôleur ; sinon « non voulu ».
 
 ## 1. À proximité
@@ -14,7 +14,7 @@ Les écarts sont étiquetés « voulu » avec la référence à la spec (`docs/s
 |---|---|---|---|
 | Barre de titre | Logo « tpf » + « Locate me » | Texte « À proximité » | voulu — spec §4, §6 |
 | Noms d'arrêts | « Neuveville-Motta », « Tilleul-Cathédrale » | « Neuveville/Motta », « Tilleul/Cathédrale » | voulu — spec §8 |
-| Distances, arrêts, lignes | 125 m, 150 m… ; lignes 7, 123, 124, 127, M17, N4… | 100 m, 125 m… ; lignes 1–6, 8, 9, 11, N1–N3… | voulu — spec §5, §8 |
+| Distances, arrêts, lignes | 125 m, 150 m… ; lignes 7, 123, 124, 127, M17, N4… | 125 m, 150 m… jusqu'à 550 m (rayon de 500 m, carré, distance arrondie au 25 m supérieur, comme l'ancienne app) ; lignes 1–6, 8, 9, 11, N1–N3… ; « Fribourg-St-Pierre » (funiculaire fermé jusqu'au 4 décembre) sans pastille | voulu — spec §5, §8 ; rayon aligné depuis la 1.0.1 |
 | Pastilles de lignes, forme | Carrés 46×47 px réels (17,5 dp), pas 48 px, interligne 52 px | Carrés 46×47 px, mêmes pas et interligne ; plus larges seulement pour « 542 », « FUN », « N1 » | corrigé (commit 02292fb) |
 | Pastilles de lignes, texte | Chiffres en graisse moyenne, hauteur 23 px | Graisse moyenne, 12 sp | corrigé (commit 02292fb) |
 | Pastilles de lignes, trop-plein | Jusqu'à 8 pastilles (2 rangées de 4) ; au-delà de 8 : 7 pastilles + « … » | Jusqu'à 8 pastilles (4 par rangée × 2) ; au-delà de 8 : 7 pastilles + « … » (`badgeSlots`) | voulu — décision du contrôleur : visuellement identique à l'ancienne app avec nos libellés étroits |
@@ -35,7 +35,10 @@ Les écarts sont étiquetés « voulu » avec la référence à la spec (`docs/s
 | Icône billet (CHF) | Présente | Absente | voulu — spec §6.2 |
 | Bandeau rouge « Offline data… » | Présent | Absent | voulu — spec §6.2 |
 | Départs, destinations, minutes | Horaire 2021 | Horaire réel actuel | voulu — spec §8 |
-| Retard | Pas de libellé | Étiquette jaune « +N' » à gauche de la pastille | voulu — spec §7 |
+| Retard | Minutes en jaune dans la pastille ; en mode heure, pastille « +N' » | Identique (minutes jaunes « 2' », « 9' », « 16' » sur la capture ; « +N' » en mode heure) | aligné depuis la 1.0.1 |
+| Bus tout juste parti | Pastille éclaircie | Pastille éclaircie (« 0' » grisé, première ligne) | aligné depuis la 1.0.1 |
+| « 0' » | Clignote | Clignote | aligné depuis la 1.0.1 |
+| Départ de plus d'une heure | « 1h05' » | « 1h05' » | aligné depuis la 1.0.1 |
 | Ordre des lignes | Horaire théorique | Heure réelle | voulu — spec §7 |
 | Icônes de la barre | Loupe, localisation, billet, ⋮ | Loupe, localisation, ⋮ | voulu (billet absent) |
 | Marge gauche de la barre | Flèche x≈61, titre x≈132 | Flèche x≈62, titre x≈132 | corrigé (commit 02292fb) |
@@ -51,7 +54,7 @@ Les écarts sont étiquetés « voulu » avec la référence à la spec (`docs/s
 
 | Élément | Ancienne app | FriBus Info | Statut |
 |---|---|---|---|
-| Libellés | « Add to favorites », « Switch to absolute time » | « Ajouter aux favoris », « Afficher l'heure » | voulu — spec §6 |
+| Libellés | « Add to favorites », « Switch to absolute time » | « Ajouter aux favoris », « Heure de départ absolue » (reprend les libellés français de l'ancienne app ; passe sur deux lignes comme dans une largeur de 247 dp) | voulu — spec §6 |
 | Position du menu | Recouvre la barre de titre (ancré en haut à droite) | Recouvre la barre, bord droit à l'écran, haut à y=146 px (comme l'ancienne) | corrigé (commit 02292fb) |
 | Largeur et gabarit du menu | 649 px réels (247 dp), sans marge verticale, icône x≈430, texte x≈500 | Identique (icône 432, texte 502) | corrigé (commit 02292fb) |
 | Icônes (étoile, horloge) | Étoile creuse, horloge | Identiques | identique |
@@ -80,7 +83,8 @@ Les écarts sont étiquetés « voulu » avec la référence à la spec (`docs/s
 
 | Élément | Ancienne app | FriBus Info | Statut |
 |---|---|---|---|
-| Champ vide | Titre tronqué « Se… » | Placeholder « Rechercher un arrêt » dans le champ + icône loupe | voulu — décision du contrôleur |
+| Champ vide | Titre tronqué « Se… » | Placeholder « Rechercher station » (indice de l'ancienne app) + icône loupe | voulu — décision du contrôleur, spec §6 |
+| Recherche à plusieurs mots | Tous les mots doivent figurer | Idem (« gare » ; multi-mots depuis la 1.0.1) | aligné depuis la 1.0.1 |
 | Résultats | Arrêts TPF de toute la Suisse romande (Albeuve, Avenches…) | Arrêts du réseau actuel (Avry-Matran, Belfaux CFF, Givisiez…) | voulu — spec §8 |
 | Lignes affichées | Anciennes lignes (201, 290, N14…) | Lignes conservées uniquement | voulu — spec §5 |
 | Marge gauche de la liste | Textes à x≈36 | x≈36 | corrigé (commit 02292fb) |
@@ -106,7 +110,7 @@ Les écarts sont étiquetés « voulu » avec la référence à la spec (`docs/s
 
 ## Point ouvert
 
-L'ancienne app garde un départ tout juste passé avec un bouton plus clair ; FriBus Info le retire à sa minute (sauf retard connu) — à décider par Matthieu.
+Aucun : le départ tout juste passé est désormais affiché en pastille éclaircie comme dans l'ancienne app (v1.0.1).
 
 ## Conclusion
 
@@ -118,4 +122,4 @@ Ce qui reste, sans être corrigeable par réglage :
 2. Hauteur de glyphes de la commune (13,5 sp) : l'ancienne police est un peu plus haute à largeur égale (≈ 3 px) ; invisible à l'usage.
 3. Barre du tiroir ouvert : le titre de l'écran remplace le logo « tpf » (voulu, spec §4).
 
-Mesures prises sur les captures 1080×2400 (densité 2,625 px/dp). Le point ouvert ci-dessus est une décision laissée à Matthieu, pas un écart non souhaité : aucun écart non souhaité.
+Recapture sur la v1.0.1 : aucune nouvelle différence non voulue observée sur les 6 écrans (le clavier est masqué sur la capture de recherche ; l'ancienne app est capturée sans clavier). Mesures prises sur les captures 1080×2400 (densité 2,625 px/dp). Aucun écart non souhaité.
