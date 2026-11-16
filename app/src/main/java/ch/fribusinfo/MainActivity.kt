@@ -21,6 +21,7 @@ import androidx.navigation.navArgument
 import ch.fribusinfo.ui.AppScaffold
 import ch.fribusinfo.ui.FriBusTheme
 import ch.fribusinfo.ui.Routes
+import ch.fribusinfo.ui.TripScreen
 
 class MainActivity : ComponentActivity() {
     // Screens (next tasks) read the repository from here; the updater swaps it.
@@ -65,7 +66,19 @@ private fun App() {
                 navArgument("serviceDate") { type = NavType.IntType },
                 navArgument("fromSeq") { type = NavType.IntType },
             ),
-        ) { Placeholder("Trajet", nav) }
+        ) { entry ->
+            val app = LocalContext.current.applicationContext as FriBusApp
+            val repo by app.timetable.repository.collectAsState()
+            val d = entry.arguments!!.getInt("serviceDate")
+            TripScreen(
+                entry.arguments!!.getLong("tripId"),
+                java.time.LocalDate.of(d / 10000, d / 100 % 100, d % 100),
+                entry.arguments!!.getInt("fromSeq"),
+                null,
+                nav,
+                repo,
+            )
+        }
     }
 }
 

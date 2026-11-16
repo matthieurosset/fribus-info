@@ -134,6 +134,14 @@ class TimetableRepository(
         }
     }
 
+    /** Line and headsign of a trip, or null if the trip is unknown. */
+    fun tripHeader(tripId: Long): TripHeader? =
+        db.rawQuery("SELECT line_id, headsign, headsign_commune FROM trip WHERE id = ?", arrayOf(tripId.toString())).use { c ->
+            if (!c.moveToFirst()) return null
+            val line = lines[c.getInt(0)] ?: return null
+            TripHeader(line, c.getString(1), c.getString(2))
+        }
+
     /** Every stop of a trip run on [serviceDate], in order. */
     fun trip(tripId: Long, serviceDate: LocalDate): List<TripStop> {
         val rows = ArrayList<Triple<Long, Int, Long>>()

@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
@@ -72,6 +74,7 @@ fun AppScaffold(
     title: String,
     navController: NavController,
     onBack: (() -> Unit)? = null,
+    titleBadge: ch.fribusinfo.data.Line? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable () -> Unit,
 ) {
@@ -151,7 +154,13 @@ fun AppScaffold(
                             Icon(Icons.Filled.Menu, contentDescription = "Menu", tint = Color.White)
                         }
                     }
-                    Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                    Row(Modifier.weight(1f).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (titleBadge != null) {
+                            Box(Modifier.testTag("title-badge")) { LineBadge(titleBadge) }
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(title, color = Color.White, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                     CompositionLocalProvider(LocalContentColor provides Color.White) { actions() }
                 }
             },

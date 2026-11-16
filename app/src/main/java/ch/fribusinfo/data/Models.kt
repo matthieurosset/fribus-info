@@ -19,4 +19,6 @@ data class Departure(
     val scheduled: ZonedDateTime,
 )
 
+data class TripHeader(val line: Line, val headsign: String, val headsignCommune: String)
+
 data class TripStop(val stop: StopWithLines, val seq: Int, val scheduled: ZonedDateTime)

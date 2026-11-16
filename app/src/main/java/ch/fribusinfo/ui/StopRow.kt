@@ -67,7 +67,7 @@ fun StopRow(item: StopWithLines, onClick: () -> Unit) {
 
 /** Max 4 badges per row x 2 rows, right-aligned; the « … » takes the last slot. */
 @Composable
-private fun Badges(lines: List<Line>) {
+fun Badges(lines: List<Line>) {
     val (shown, more) = badgeSlots(lines.size)
     val cells: List<Line?> = shown.map { lines[it - 1] } + if (more) listOf(null) else emptyList()
     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
