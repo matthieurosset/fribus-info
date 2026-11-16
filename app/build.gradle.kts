@@ -31,6 +31,7 @@ android {
         targetSdk = 35
         versionCode = System.getenv("FRIBUS_VERSION_CODE")?.toIntOrNull() ?: 1
         versionName = gitTagVersion()
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -72,4 +73,7 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.coroutines.android)
     testImplementation(libs.junit)
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
 }

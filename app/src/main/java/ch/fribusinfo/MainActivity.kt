@@ -14,6 +14,10 @@ import ch.fribusinfo.ui.FriBusTheme
 import ch.fribusinfo.ui.Routes
 
 class MainActivity : ComponentActivity() {
+    // Screens (next tasks) read the repository from here; the updater swaps it.
+    val timetable get() = (application as FriBusApp).timetable
+    val favorites get() = (application as FriBusApp).favorites
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { FriBusTheme { App() } }

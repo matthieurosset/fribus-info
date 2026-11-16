@@ -9,3 +9,4 @@ app/src/main/assets/timetable.db
 __pycache__/
 *.apk
 .idea/
+!app/src/androidTest/assets/test.db
