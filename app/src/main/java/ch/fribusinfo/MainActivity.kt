@@ -4,6 +4,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import ch.fribusinfo.location.AndroidLocationSource
+import ch.fribusinfo.ui.NearbyScreen
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -28,7 +34,12 @@ class MainActivity : ComponentActivity() {
 private fun App() {
     val nav = rememberNavController()
     NavHost(navController = nav, startDestination = Routes.NEARBY) {
-        composable(Routes.NEARBY) { Placeholder("À proximité", nav) }
+        composable(Routes.NEARBY) {
+            val ctx = LocalContext.current
+            val locations = remember { AndroidLocationSource(ctx.applicationContext) }
+            val repo by (ctx.applicationContext as FriBusApp).timetable.repository.collectAsState()
+            NearbyScreen(nav, repo, locations)
+        }
         composable(Routes.SEARCH) { Placeholder("Rechercher", nav) }
         composable(Routes.FAVORITES) { Placeholder("Favoris", nav) }
         composable(
